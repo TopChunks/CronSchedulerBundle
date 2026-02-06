@@ -233,6 +233,17 @@ class CronSchedulerType extends AbstractType
         );
 
         $builder->add(
+            'systemCron',
+            YesNoButtonGroupType::class,
+            [
+                'label' => 'mautic.cronscheduler.is.system_cron',
+                'data'  => $entity instanceof \MauticPlugin\CronSchedulerBundle\Entity\ScheduledJob
+                    ? (bool) $entity->getSystemCron()
+                    : false,
+            ]
+        );
+
+        $builder->add(
             'cronNotation',
             TextType::class,
             [

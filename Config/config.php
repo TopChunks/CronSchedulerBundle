@@ -31,6 +31,12 @@ return [
         ],
     ],
     'services' => [
+        'fixtures' => [
+            'mautic.plugin.cronscheduler.fixture.defaultcrons' => [
+                'class' => \MauticPlugin\CronSchedulerBundle\DataFixtures\ORM\LoadDefaultCrons::class,
+                'tags'  => ['doctrine.fixture.orm'],
+            ],
+        ],
         'forms' => [
             'mautic.form.type.cron_scheduler' => [
                 'class'     => \MauticPlugin\CronSchedulerBundle\Form\Type\CronSchedulerType::class,
@@ -38,6 +44,9 @@ return [
                     'mautic.cron_scheduler.command_provider'
                 ],
             ],
+            'mautic.cronscheduler.form.type.config' => [
+                'class' => \MauticPlugin\CronSchedulerBundle\Form\Type\ConfigType::class,
+            ]
         ],
         'events' => [
             'mautic.cronscheduler.button.subscriber' => [
@@ -46,7 +55,16 @@ return [
                     'router',
                     'translator'
                 ]
-            ]
+            ],
+            'mautic.cronscheduler.config.subscriber' => [
+                'class' => \MauticPlugin\CronSchedulerBundle\EventListener\ConfigSubscriber::class,
+            ],
+            'mautic.cronscheduler.install.subscriber' => [
+                'class' => \MauticPlugin\CronSchedulerBundle\EventListener\InstallSubscriber::class,
+                'arguments' => [
+                    '@doctrine.orm.entity_manager'
+                ],
+            ],
         ],
         'models' => [
             'mautic.cronscheduler.model.cronscheduler' => [
@@ -66,6 +84,14 @@ return [
                 ],
                 'tag'      => 'console.command'
             ],
+            'mautic.cronscheduler.command.delete_older_logs' => [
+                'class' => \MauticPlugin\CronSchedulerBundle\Command\DeleteOlderLogsCommand::class,
+                'arguments' => [
+                    'mautic.cronscheduler.service.scheduler',
+                    'mautic.core.tenancy.runner',
+                    'mautic.helper.core_parameters'
+                ]
+            ]
         ],
         'other' => [
             'mautic.cronscheduler.service.scheduler' => [
@@ -80,5 +106,8 @@ return [
                 'arguments' => []
             ],
         ],
+    ],
+    'parameters' => [
+        'log_retention_days' => 25
     ]
 ];

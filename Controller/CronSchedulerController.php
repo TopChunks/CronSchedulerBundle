@@ -66,6 +66,12 @@ class CronSchedulerController extends AbstractStandardFormController
             $filter['force'][] = ['column' => $repo->getTableAlias() . '.createdBy', 'expr' => 'eq', 'value' => $this->user->getId()];
         }
 
+        $filter['force'][] = [
+            'column' => $repo->getTableAlias() . '.systemCron',
+            'expr'   => 'eq',
+            'value'  => 0,
+        ];
+
         $orderBy    = $session->get('mautic.' . $this->getSessionBase() . '.orderby', $repo->getTableAlias() . '.' . $this->getDefaultOrderColumn());
         $orderByDir = $session->get('mautic.' . $this->getSessionBase() . '.orderbydir', $this->getDefaultOrderDirection());
 
@@ -241,6 +247,11 @@ class CronSchedulerController extends AbstractStandardFormController
         $method = $this->request->getMethod();
         /** @var \MauticPlugin\CronSchedulerBundle\Entity\ScheduledJob $entity */
         $entity = $model->getEntity($objectId);
+
+        if ($entity && $entity->getSystemCron()) {
+            return $this->accessDenied();
+        }
+
         $session = $this->get('session');
         $page = $session->get('mautic.cronscheduler.page', 1);
 
@@ -353,6 +364,10 @@ class CronSchedulerController extends AbstractStandardFormController
         /** @var \MauticPlugin\CronSchedulerBundle\Entity\ScheduledJob $entity */
         $entity = $model->getEntity($objectId);
 
+        if ($entity && $entity->getSystemCron()) {
+            return $this->accessDenied();
+        }
+
         $page = $this->get('session')->get('mautic.cronscheduler.page', 1);
 
         if (null  === $entity) {
@@ -450,6 +465,10 @@ class CronSchedulerController extends AbstractStandardFormController
             $model = $this->getModel('cronscheduler');
             /** @var \MauticPlugin\CronSchedulerBundle\Entity\ScheduledJob $entity */
             $entity = $model->getEntity($objectId);
+
+            if ($entity && $entity->getSystemCron()) {
+                return $this->accessDenied();
+            }
 
             if (null === $entity) {
                 $flashes[] = [
@@ -558,6 +577,10 @@ class CronSchedulerController extends AbstractStandardFormController
         $model  = $this->getModel('cronscheduler');
         $entity = $model->getEntity($objectId);
 
+        if ($entity && $entity->getSystemCron()) {
+            return $this->accessDenied();
+        }
+
         if (null != $entity) {
             if (
                 !$this->get('mautic.security')->isGranted('cronscheduler:cronscheduler:create')
@@ -599,6 +622,28 @@ class CronSchedulerController extends AbstractStandardFormController
         $this->addFlash('mautic.cronscheduler.triggered.successfully');
         return $this->redirect($this->request->headers->get('referer'));
     }
+
+    // public function logsAction()
+    // {
+    //     if (!$this->get('mautic.security')->isGranted('cronscheduler:cronscheduler:viewown')) {
+    //         return $this->accessDenied();
+    //     }
+
+    //     /** @var \MauticPlugin\CronSchedulerBundle\Model\CronSchedulerModel $model */
+    //     $model = $this->getModel('cronscheduler');
+
+    //     $logs = $model->getLogsRepository()->getLatestLogs();
+
+    //     $viewParameters = [
+    //         'logs' => $logs,
+    //         'tmpl' => $this->request->get('tmpl', 'index'),
+    //     ];
+
+    //     return $this->delegateView([
+    //         'viewParameters'  => $viewParameters,
+    //         'contentTemplate' => 'CronSchedulerBundle:CronScheduler:logs.html.php',
+    //     ]);
+    // }
 
     public function getModelName()
     {

@@ -130,6 +130,7 @@ $hideTriggerMode = false;
         <div class="col-md-3">
             <div class="pr-lg pl-lg pt-md pb-md">
                 <?php echo $view['form']->row($form['runOnRecovery']); ?>
+                <?php echo $view['form']->row($form['systemCron']); ?>
                 <?php echo $view['form']->row($form['isPublished']); ?>
                 <?php echo $view['form']->row($form['category']); ?>
                 <?php echo $view['form']->row($form['publishUp']); ?>

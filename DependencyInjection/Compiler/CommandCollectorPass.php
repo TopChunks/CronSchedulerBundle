@@ -11,6 +11,18 @@ class CommandCollectorPass implements CompilerPassInterface
     {
         $serviceId = 'mautic.cron_scheduler.command_provider';
 
+        $excludedCommands = [
+            'app:install',
+            'app:updates:apply',
+            'app:maintenance:cleanup',
+            'app:update:find',
+            'app:install:data',
+            'app:max-mind:purge',
+            'app:marketplace:install',
+            'app:marketplace:list',
+            'app:marketplace:remove',
+        ];
+
         if (!$container->has($serviceId)) {
             return;
         }
@@ -51,13 +63,17 @@ class CommandCollectorPass implements CompilerPassInterface
                 if ($reflectionClass->hasConstant('COMMAND_LABEL')) {
                     $commandName = $reflectionClass->getConstant('COMMAND_LABEL');
                     if ($commandName && is_string($commandName)) {
-                        $commandNames[] = $commandName;
+                        if (!in_array($commandName, $excludedCommands, true)) {
+                            $commandNames[] = $commandName;
+                        }
                         continue;
                     }
                 } elseif ($reflectionClass->hasConstant('COMMAND_NAME')) {
                     $commandName = $reflectionClass->getConstant('COMMAND_NAME');
                     if ($commandName && is_string($commandName)) {
-                        $commandNames[] = $commandName;
+                        if (!in_array($commandName, $excludedCommands, true)) {
+                            $commandNames[] = $commandName;
+                        }
                         continue;
                     }
                 }
@@ -73,15 +89,20 @@ class CommandCollectorPass implements CompilerPassInterface
                         $methodSource = implode('', array_slice($source, $startLine - 1, $endLine - $startLine + 1));
 
                         if (preg_match('/->setName\s*\(\s*[\'"]([^\'"]+)[\'"]\s*\)/', $methodSource, $matches)) {
-                            $commandNames[] = $matches[1];
+                            if (!in_array($matches[1], $excludedCommands, true)) {
+                                $commandNames[] = $matches[1];
+                            }
                             continue;
                         }
 
                         if (preg_match('/->setName\s*\(\s*self::([A-Z_]+)\s*\)/', $methodSource, $matches)) {
                             $constantName = $matches[1];
                             if ($reflectionClass->hasConstant($constantName)) {
-                                $commandNames[] = $reflectionClass->getConstant($constantName);
-                                continue;
+                                $resolvedName = $reflectionClass->getConstant($constantName);
+                                if (in_array($resolvedName, $excludedCommands, true)) {
+                                    continue;
+                                }
+                                $commandNames[] = $resolvedName;
                             }
                         }
                     }

@@ -5,6 +5,7 @@ namespace MauticPlugin\CronSchedulerBundle\Model;
 use Exception;
 use Mautic\CoreBundle\Model\AjaxLookupModelInterface;
 use Mautic\CoreBundle\Model\FormModel;
+use MauticPlugin\CronSchedulerBundle\Entity\JobExecutionLog;
 use MauticPlugin\CronSchedulerBundle\Entity\ScheduledJob;
 use MauticPlugin\CronSchedulerBundle\Form\Type\CronSchedulerType;
 use MauticPlugin\CronSchedulerBundle\Service\SchedulerService;
@@ -25,6 +26,11 @@ class CronSchedulerModel extends FormModel implements AjaxLookupModelInterface
     public function getRepository()
     {
         return $this->em->getRepository(ScheduledJob::class);
+    }
+
+    public function getLogsRepository()
+    {
+        return $this->em->getRepository(JobExecutionLog::class);
     }
 
     public function getPermissionBase()

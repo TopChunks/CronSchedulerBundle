@@ -31,38 +31,54 @@ class ButtonSubscriber implements EventSubscriberInterface
     public static function getSubscribedEvents()
     {
         return [
-            CoreEvents::VIEW_INJECT_CUSTOM_BUTTONS => ['injectSendMessageButtons', 0],
+            CoreEvents::VIEW_INJECT_CUSTOM_BUTTONS => ['injectTriggerScheduledJobButton', 0],
         ];
     }
 
-    public function injectSendMessageButtons(CustomButtonEvent $event)
+    public function injectTriggerScheduledJobButton(CustomButtonEvent $event)
     {
         $entity = $event->getItem();
+        $location = $event->getLocation();
 
-        if ($entity = $event->getItem()) {
-            if ($entity instanceof ScheduledJob) {
+        if ($location === ButtonHelper::LOCATION_NAVBAR) {
 
-                $triggerButton = [
-                    'attr' => [
-                        'class'       => 'btn btn-default btn-nospin',
-                        'data-ajax'    => 'true',
-                        'data-toggle'  => 'ajax',
-                        'href'        => $this->router->generate('mautic_cronscheduler_action', ['objectAction' => 'trigger', 'objectId' => $entity->getId()]),
-                        'data-header' => $this->translator->trans('mautic.cronscheduler.trigger'),
-                    ],
-                    'iconClass' => 'fa fa-play',
-                    'btnText'   => $this->translator->trans('mautic.cronscheduler.trigger'),
-                    'primary'   => true,
-                ];
+            $navbarLogsButton = [
+                'attr' => [
+                    'class' => 'btn btn-default btn-nospin dropdown-toggle',
+                    'style'       => 'color:#fff; background-color:transparent;display:inline;position:relative;top:-1.75px;',
+                    'href'  => 'javascript:void(0);',
+                    'onclick' => 'Mautic.showLogs(event)',
+                    'id' => 'cronLogsBtn',
+                ],
+                'iconClass' => 'fa fa-history',
+            ];
 
-                $event->addButton(
-                    $triggerButton,
-                    ButtonHelper::LOCATION_PAGE_ACTIONS,
-                )->addButton(
-                    $triggerButton,
-                    ButtonHelper::LOCATION_LIST_ACTIONS,
-                );
-            }
+            $event->addButton($navbarLogsButton, ButtonHelper::LOCATION_NAVBAR);
+            return;
+        }
+
+        if ($entity instanceof ScheduledJob) {
+
+            $triggerButton = [
+                'attr' => [
+                    'class'       => 'btn btn-default btn-nospin',
+                    'data-ajax'    => 'true',
+                    'data-toggle'  => 'dropdown',
+                    'href'        => $this->router->generate('mautic_cronscheduler_action', ['objectAction' => 'trigger', 'objectId' => $entity->getId()]),
+                    'data-header' => $this->translator->trans('mautic.cronscheduler.trigger'),
+                ],
+                'iconClass' => 'fa fa-play',
+                'btnText'   => $this->translator->trans('mautic.cronscheduler.trigger'),
+                'primary'   => true,
+            ];
+
+            $event->addButton(
+                $triggerButton,
+                ButtonHelper::LOCATION_PAGE_ACTIONS,
+            )->addButton(
+                $triggerButton,
+                ButtonHelper::LOCATION_LIST_ACTIONS,
+            );
         }
     }
 }

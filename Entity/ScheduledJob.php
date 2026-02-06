@@ -41,6 +41,8 @@ class ScheduledJob extends FormEntity
     private $executionLogs;
     private $cronNotation;
     private $runOnRecovery;
+    private $systemCron;
+
     /**
      * @var \DateTime|null
      */
@@ -117,6 +119,7 @@ class ScheduledJob extends FormEntity
         $builder->createField('lockedAt', Types::DATETIME_MUTABLE)->columnName('locked_at')->nullable()->build();
         $builder->createField('cronNotation', Types::TEXT)->columnName('cron_notation')->nullable()->build();
         $builder->createField('runOnRecovery', Types::BOOLEAN)->columnName('run_on_recovery')->build();
+        $builder->createField('systemCron', Types::BOOLEAN)->columnName('system_cron')->build();
         $builder->addPublishDates();
         $builder->addCategory();
 
@@ -373,6 +376,17 @@ class ScheduledJob extends FormEntity
     {
         $this->isChanged('arguments', $arguments);
         $this->arguments = $arguments;
+    }
+
+    public function getSystemCron()
+    {
+        return $this->systemCron;
+    }
+
+    public function setSystemCron($systemCron)
+    {
+        $this->isChanged('systemCron', $systemCron);
+        $this->systemCron = $systemCron;
     }
 
     public function getRunOnRecovery()

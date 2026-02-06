@@ -10,6 +10,7 @@ use Symfony\Component\Console\Input\StringInput;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\HttpKernel\KernelInterface;
 use Cron\CronExpression;
+use Mautic\CoreBundle\Tenancy\TenantContext;
 
 class SchedulerService
 {
@@ -222,6 +223,7 @@ class SchedulerService
      */
     public function triggerJob(ScheduledJob $job)
     {
+        $shouldLog = !$job->getSystemcron();
         if (!$this->acquireLock($job)) {
             return [
                 'success' => false,
@@ -231,15 +233,20 @@ class SchedulerService
 
         $startTime = microtime(true);
         $startedAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
-        $log = new JobExecutionLog();
-        $log->setScheduledJob($job);
-        $log->setStartedAt($startedAt);
+
+        $log = null;
+
+        if ($shouldLog) {
+            $log = new JobExecutionLog();
+            $log->setScheduledJob($job);
+            $log->setStartedAt($startedAt);
+        }
 
         $exitCode = null;
         $outputString = '';
 
         try {
-            $commandString = trim($job->getCommand() . ' ' . $job->getArguments());
+            $commandString = trim($job->getCommand() . ' ' . $job->getArguments() . '--tenant-id=' . TenantContext::getTenantId());
             $input = new StringInput($commandString);
 
             if (null === $this->application) {
@@ -256,11 +263,13 @@ class SchedulerService
             $completedAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
             $duration = microtime(true) - $startTime;
 
-            $log->setCompletedAt($completedAt);
-            $log->setExitCode($exitCode);
-            $log->setOutput($outputString);
-            $log->setDuration($duration);
-            $log->setIsSuccess($exitCode === 0);
+            if ($log) {
+                $log->setCompletedAt($completedAt);
+                $log->setExitCode($exitCode);
+                $log->setOutput($outputString);
+                $log->setDuration($duration);
+                $log->setIsSuccess($exitCode === 0);
+            }
 
             $now = new \DateTime('now', new \DateTimeZone('UTC'));
             $job->setLastRunAt($now);
@@ -268,7 +277,9 @@ class SchedulerService
             $nextRunAt = $this->calculateNextRunTime($job, $now);
             $job->setNextRunAt($nextRunAt);
 
-            $this->em->persist($log);
+            if ($log) {
+                $this->em->persist($log);
+            }
             $this->em->persist($job);
 
             return [
@@ -281,12 +292,14 @@ class SchedulerService
             $completedAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
             $duration = microtime(true) - $startTime;
 
-            $log->setCompletedAt($completedAt);
-            $log->setIsSuccess(false);
-            $log->setErrorMessage($e->getMessage());
-            $log->setDuration($duration);
+            if ($log) {
+                $log->setCompletedAt($completedAt);
+                $log->setIsSuccess(false);
+                $log->setErrorMessage($e->getMessage());
+                $log->setDuration($duration);
+            }
 
-            if ($exitCode !== null) {
+            if ($log && $exitCode !== null) {
                 $log->setExitCode($exitCode);
             }
 
@@ -294,7 +307,9 @@ class SchedulerService
                 $log->setOutput($outputString);
             }
 
-            $this->em->persist($log);
+            if ($log) {
+                $this->em->persist($log);
+            }
 
             $now = new \DateTime('now', new \DateTimeZone('UTC'));
             $job->setLastRunAt($now);
@@ -307,6 +322,23 @@ class SchedulerService
             $job->setLockedAt(null);
             $this->em->flush();
         }
+    }
+
+    public function deleteOlderLogs(int $retentionDays): int
+    {
+        if ($retentionDays <= 0) {
+            return 0;
+        }
+
+        $cutoff = new \DateTimeImmutable(
+            sprintf('-%d days', $retentionDays),
+            new \DateTimeZone('UTC')
+        );
+
+        /** @var \MauticPlugin\CronSchedulerBundle\Entity\JobExecutionLogRepository $repo */
+        $repo = $this->em->getRepository(JobExecutionLog::class);
+
+        return $repo->deleteOlderLogs($cutoff);
     }
 
     public function calculateNextRunTime(ScheduledJob $job, \DateTime $now = null): ?\DateTime
