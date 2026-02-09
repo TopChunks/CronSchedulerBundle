@@ -16,7 +16,7 @@ class JobExecutionLogRepository extends EntityRepository
             ->execute();
     }
 
-    public function getLatestLogs($limit = 20)
+    public function getLatestLogs($limit = 15)
     {
         return $this->createQueryBuilder('l')
             ->leftJoin('l.scheduledJob', 'j')

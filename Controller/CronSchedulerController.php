@@ -623,28 +623,6 @@ class CronSchedulerController extends AbstractStandardFormController
         return $this->redirect($this->request->headers->get('referer'));
     }
 
-    // public function logsAction()
-    // {
-    //     if (!$this->get('mautic.security')->isGranted('cronscheduler:cronscheduler:viewown')) {
-    //         return $this->accessDenied();
-    //     }
-
-    //     /** @var \MauticPlugin\CronSchedulerBundle\Model\CronSchedulerModel $model */
-    //     $model = $this->getModel('cronscheduler');
-
-    //     $logs = $model->getLogsRepository()->getLatestLogs();
-
-    //     $viewParameters = [
-    //         'logs' => $logs,
-    //         'tmpl' => $this->request->get('tmpl', 'index'),
-    //     ];
-
-    //     return $this->delegateView([
-    //         'viewParameters'  => $viewParameters,
-    //         'contentTemplate' => 'CronSchedulerBundle:CronScheduler:logs.html.php',
-    //     ]);
-    // }
-
     public function getModelName()
     {
         return 'cronscheduler';
