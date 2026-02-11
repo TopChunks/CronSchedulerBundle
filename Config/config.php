@@ -75,6 +75,15 @@ return [
                     'mautic.cronscheduler.model.cronscheduler',
                     'mautic.cronscheduler.service.scheduler',
                     'mautic.core.tenancy.runner',
+                    'mautic.cronscheduler.service.job_scheduler',
+                ],
+                'tag'      => 'console.command'
+            ],
+            'mautic.cronscheduler.command.process_queues' => [
+                'class'     => \MauticPlugin\CronSchedulerBundle\Command\ProcessJobQueuesCommand::class,
+                'arguments' => [
+                    'mautic.cronscheduler.service.job_queue_processor',
+                    'mautic.core.tenancy.runner',
                 ],
                 'tag'      => 'console.command'
             ],
@@ -93,20 +102,43 @@ return [
                 'arguments' => [
                     '@doctrine.orm.entity_manager',
                     '@kernel',
-                    'mautic.cronscheduler.scheduled_send.registry',
+                    'mautic.cronscheduler.service.job_scheduler',
                 ],
             ],
             'mautic.cron_scheduler.command_provider' => [
                 'class'     => \MauticPlugin\CronSchedulerBundle\Service\CommandProvider::class,
                 'arguments' => []
             ],
-            'mautic.cronscheduler.scheduled_send.registry' => [
-                'class'     => \MauticPlugin\CronSchedulerBundle\Integration\ScheduledSend\ScheduledSendRegistry::class,
-                'arguments' => [[]],
+            'mautic.cronscheduler.queue.manager_factory' => [
+                'class'     => \MauticPlugin\CronSchedulerBundle\Queue\QueueManagerFactory::class,
+                'arguments' => [
+                    '@doctrine.orm.entity_manager',
+                    'mautic.helper.core_parameters',
+                ],
+            ],
+            'mautic.cronscheduler.service.job_scheduler' => [
+                'class'     => \MauticPlugin\CronSchedulerBundle\Service\JobScheduler::class,
+                'arguments' => [
+                    '@doctrine.orm.entity_manager',
+                    'mautic.cronscheduler.queue.manager_factory',
+                ],
+            ],
+            'mautic.cronscheduler.service.job_queue_processor' => [
+                'class'     => \MauticPlugin\CronSchedulerBundle\Service\JobQueueProcessor::class,
+                'arguments' => [
+                    '@doctrine.orm.entity_manager',
+                    '@kernel',
+                    'mautic.cronscheduler.queue.manager_factory',
+                    'monolog.logger.mautic',
+                    'service_container',
+                    'mautic.cronscheduler.service.job_scheduler',
+                    'mautic.cronscheduler.service.scheduler',
+                ],
             ],
         ],
     ],
     'parameters' => [
-        'log_retention_days' => 25
+        'log_retention_days' => 25,
+        'job_queue_type' => 'database', // database, redis, sqs, rabbitmq
     ]
 ];

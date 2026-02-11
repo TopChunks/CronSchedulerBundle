@@ -5,7 +5,7 @@ namespace MauticPlugin\CronSchedulerBundle\Service;
 use Doctrine\ORM\EntityManager;
 use MauticPlugin\CronSchedulerBundle\Entity\JobExecutionLog;
 use MauticPlugin\CronSchedulerBundle\Entity\ScheduledJob;
-use MauticPlugin\CronSchedulerBundle\Integration\ScheduledSend\ScheduledSendRegistry;
+use MauticPlugin\CronSchedulerBundle\Service\JobScheduler;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Console\Input\StringInput;
 use Symfony\Component\Console\Output\BufferedOutput;
@@ -44,11 +44,16 @@ class SchedulerService
      */
     private $systemTimezone;
 
-    public function __construct(EntityManager $em, KernelInterface $kernel, ScheduledSendRegistry $scheduledSendRegistry)
+    /**
+     * @var JobScheduler|null
+     */
+    private $jobScheduler;
+
+    public function __construct(EntityManager $em, KernelInterface $kernel, JobScheduler $jobScheduler = null)
     {
         $this->em = $em;
         $this->kernel = $kernel;
-        $this->scheduledSendRegistry = $scheduledSendRegistry;
+        $this->jobScheduler = $jobScheduler;
         // Store system timezone, but all DB operations will be in UTC
         $this->systemTimezone = new \DateTimeZone(date_default_timezone_get());
     }
@@ -401,6 +406,32 @@ class SchedulerService
             $job->setLockedAt(null);
             $this->em->flush();
         }
+    }
+
+    /**
+     * Create job queues from scheduled jobs that are due
+     * This method is called by the scheduler to populate the job queue
+     *
+     * @param ScheduledJob[] $scheduledJobs
+     * @return int Number of job queues created
+     */
+    public function createJobQueuesFromScheduledJobs(array $scheduledJobs): int
+    {
+        if (!$this->jobScheduler) {
+            return 0;
+        }
+
+        $created = 0;
+        foreach ($scheduledJobs as $job) {
+            if ($this->isDue($job)) {
+                $jobQueue = $this->jobScheduler->createJobQueueFromScheduledJob($job);
+                if ($jobQueue) {
+                    $created++;
+                }
+            }
+        }
+
+        return $created;
     }
 
     public function deleteOlderLogs(int $retentionDays): int
