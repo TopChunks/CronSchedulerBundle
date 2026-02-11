@@ -5,6 +5,7 @@ namespace MauticPlugin\CronSchedulerBundle\Service;
 use Doctrine\ORM\EntityManager;
 use MauticPlugin\CronSchedulerBundle\Entity\JobExecutionLog;
 use MauticPlugin\CronSchedulerBundle\Entity\ScheduledJob;
+use MauticPlugin\CronSchedulerBundle\Integration\ScheduledSend\ScheduledSendRegistry;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Console\Input\StringInput;
 use Symfony\Component\Console\Output\BufferedOutput;
@@ -15,6 +16,12 @@ use Mautic\CoreBundle\Tenancy\TenantContext;
 class SchedulerService
 {
     /**
+     * Internal job command name: process all due scheduled-send items (email, whatsapp, etc.)
+     * via registered handlers. Not a real console command.
+     */
+    public const INTERNAL_SCHEDULED_SEND_COMMAND = '__internal_scheduled_send__';
+
+    /**
      * @var EntityManager
      */
     private $em;
@@ -24,6 +31,11 @@ class SchedulerService
      */
     private $kernel;
 
+    /**
+     * @var ScheduledSendRegistry
+     */
+    private $scheduledSendRegistry;
+
     private ?Application $application = null;
 
     /**
@@ -32,10 +44,11 @@ class SchedulerService
      */
     private $systemTimezone;
 
-    public function __construct(EntityManager $em, KernelInterface $kernel)
+    public function __construct(EntityManager $em, KernelInterface $kernel, ScheduledSendRegistry $scheduledSendRegistry)
     {
         $this->em = $em;
         $this->kernel = $kernel;
+        $this->scheduledSendRegistry = $scheduledSendRegistry;
         // Store system timezone, but all DB operations will be in UTC
         $this->systemTimezone = new \DateTimeZone(date_default_timezone_get());
     }
@@ -216,14 +229,14 @@ class SchedulerService
     }
 
     /**
-     * Trigger a scheduled job by executing its command
+     * Trigger a scheduled job by executing its command (or internal handler).
      *
      * @param ScheduledJob $job
      * @throws \Exception
      */
     public function triggerJob(ScheduledJob $job)
     {
-        $shouldLog = !$job->getSystemcron();
+        $shouldLog = !$job->getSystemCron();
         if (!$this->acquireLock($job)) {
             return [
                 'success' => false,
@@ -244,6 +257,72 @@ class SchedulerService
 
         $exitCode = null;
         $outputString = '';
+
+        // Internal job: process all due scheduled-send items via registered channel handlers (email, whatsapp, etc.)
+        if (trim((string) $job->getCommand()) === self::INTERNAL_SCHEDULED_SEND_COMMAND) {
+            try {
+                $now = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+                $totalProcessed = 0;
+                $lines = [];
+                foreach ($this->scheduledSendRegistry->getHandlers() as $handler) {
+                    try {
+                        $count = $handler->processDueItems($now);
+                        $totalProcessed += $count;
+                        if ($count > 0) {
+                            $lines[] = $handler->getChannelName() . ': ' . $count . ' processed';
+                        }
+                    } catch (\Throwable $e) {
+                        $lines[] = $handler->getChannelName() . ': error - ' . $e->getMessage();
+                    }
+                }
+                $outputString = implode("\n", $lines);
+
+                $completedAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+                $duration = microtime(true) - $startTime;
+                $exitCode = 0;
+
+                if ($log) {
+                    $log->setCompletedAt($completedAt);
+                    $log->setExitCode($exitCode);
+                    $log->setOutput($outputString);
+                    $log->setDuration($duration);
+                    $log->setIsSuccess(true);
+                }
+
+                $job->setLastRunAt(new \DateTime('now', new \DateTimeZone('UTC')));
+                $job->setNextRunAt($this->calculateNextRunTime($job));
+                if ($log) {
+                    $this->em->persist($log);
+                }
+                $this->em->persist($job);
+
+                return [
+                    'success'  => true,
+                    'exitCode' => $exitCode,
+                    'output'   => $outputString,
+                    'duration' => $duration,
+                ];
+            } catch (\Exception $e) {
+                $completedAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+                $duration = microtime(true) - $startTime;
+                if ($log) {
+                    $log->setCompletedAt($completedAt);
+                    $log->setIsSuccess(false);
+                    $log->setErrorMessage($e->getMessage());
+                    $log->setDuration($duration);
+                }
+                $job->setLastRunAt(new \DateTime('now', new \DateTimeZone('UTC')));
+                $job->setNextRunAt($this->calculateNextRunTime($job));
+                if ($log) {
+                    $this->em->persist($log);
+                }
+                $this->em->persist($job);
+                throw new \Exception("Scheduled send job failed: " . $e->getMessage());
+            } finally {
+                $job->setLockedAt(null);
+                $this->em->flush();
+            }
+        }
 
         try {
             $commandString = trim($job->getCommand() . ' ' . $job->getArguments() . '--tenant-id=' . TenantContext::getTenantId());

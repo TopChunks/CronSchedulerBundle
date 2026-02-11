@@ -31,12 +31,6 @@ return [
         ],
     ],
     'services' => [
-        'fixtures' => [
-            'mautic.plugin.cronscheduler.fixture.defaultcrons' => [
-                'class' => \MauticPlugin\CronSchedulerBundle\DataFixtures\ORM\LoadDefaultCrons::class,
-                'tags'  => ['doctrine.fixture.orm'],
-            ],
-        ],
         'forms' => [
             'mautic.form.type.cron_scheduler' => [
                 'class'     => \MauticPlugin\CronSchedulerBundle\Form\Type\CronSchedulerType::class,
@@ -99,11 +93,16 @@ return [
                 'arguments' => [
                     '@doctrine.orm.entity_manager',
                     '@kernel',
+                    'mautic.cronscheduler.scheduled_send.registry',
                 ],
             ],
             'mautic.cron_scheduler.command_provider' => [
                 'class'     => \MauticPlugin\CronSchedulerBundle\Service\CommandProvider::class,
                 'arguments' => []
+            ],
+            'mautic.cronscheduler.scheduled_send.registry' => [
+                'class'     => \MauticPlugin\CronSchedulerBundle\Integration\ScheduledSend\ScheduledSendRegistry::class,
+                'arguments' => [[]],
             ],
         ],
     ],

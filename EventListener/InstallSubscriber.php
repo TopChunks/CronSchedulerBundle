@@ -7,6 +7,7 @@ use Mautic\PluginBundle\Event\PluginInstallEvent;
 use Mautic\PluginBundle\PluginEvents;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use MauticPlugin\CronSchedulerBundle\Entity\ScheduledJob;
+use MauticPlugin\CronSchedulerBundle\Service\SchedulerService;
 
 class InstallSubscriber implements EventSubscriberInterface
 {
@@ -56,6 +57,13 @@ class InstallSubscriber implements EventSubscriberInterface
                 'name'        => 'Cleanup Old Logs Data',
                 'command'     => 'cronscheduler:delete:cronlogs',
                 'cronNotation' => '0 3 * * *',
+                'triggerMode' => 'cron',
+                'systemCron'  => 1
+            ],
+            [
+                'name'        => 'Send scheduled segment messages',
+                'command'     => SchedulerService::INTERNAL_SCHEDULED_SEND_COMMAND,
+                'cronNotation' => '*/2 * * * *',
                 'triggerMode' => 'cron',
                 'systemCron'  => 1
             ],
