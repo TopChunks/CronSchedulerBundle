@@ -6,6 +6,7 @@ use Mautic\CoreBundle\Tenancy\Entity\Tenant;
 use Mautic\CoreBundle\Tenancy\TenantRunner;
 use MauticPlugin\CronSchedulerBundle\Model\CronSchedulerModel;
 use MauticPlugin\CronSchedulerBundle\Service\SchedulerService;
+use MauticPlugin\CronSchedulerBundle\Service\JobScheduler;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -29,11 +30,17 @@ class TriggerSchedulerJobs extends Command
      */
     protected $tenantRunner;
 
-    public function __construct(CronSchedulerModel $model, SchedulerService $schedulerService, TenantRunner $tenantRunner)
+    /**
+     * @var JobScheduler|null
+     */
+    protected $jobScheduler;
+
+    public function __construct(CronSchedulerModel $model, SchedulerService $schedulerService, TenantRunner $tenantRunner, JobScheduler $jobScheduler = null)
     {
         $this->model = $model;
         $this->schedulerService = $schedulerService;
         $this->tenantRunner = $tenantRunner;
+        $this->jobScheduler = $jobScheduler;
         parent::__construct();
     }
 
@@ -59,6 +66,12 @@ class TriggerSchedulerJobs extends Command
                 null,
                 InputOption::VALUE_NONE,
                 'Show detailed debug information'
+            )
+            ->addOption(
+                '--use-queue',
+                null,
+                InputOption::VALUE_NONE,
+                'Create job queues instead of executing directly'
             );
         parent::configure();
     }
@@ -72,6 +85,7 @@ class TriggerSchedulerJobs extends Command
                 $io = new SymfonyStyle($input, $output);
                 $force = $input->getOption('force');
                 $debug = $input->getOption('debug');
+                $useQueue = $input->getOption('use-queue');
 
                 // Get all published jobs
                 $scheduledJobs = $this->model->getRepository()->findBy([
@@ -85,6 +99,13 @@ class TriggerSchedulerJobs extends Command
 
                 if ($debug) {
                     $io->note(sprintf('Found %d published job(s)', count($scheduledJobs)));
+                }
+
+                // If using queue, create job queues instead of executing directly
+                if ($useQueue && $this->jobScheduler) {
+                    $queuesCreated = $this->schedulerService->createJobQueuesFromScheduledJobs($scheduledJobs);
+                    $io->success(sprintf('Created %d job queue(s) from scheduled jobs', $queuesCreated));
+                    return 0;
                 }
 
                 $triggered = 0;
