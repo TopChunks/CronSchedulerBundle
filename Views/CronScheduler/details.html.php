@@ -49,31 +49,6 @@ $generateLabel = function (string $command): string {
     return implode(' ', array_map('ucfirst', $parts));
 };
 ?>
-<div class="page-header">
-    <div class="col-xs-5 col-sm-6 col-md-3 pa-2">
-        <div class="pull-left">
-            <h3 class="pull-left">
-                <?php $view['slots']->output('headerTitle'); ?>
-            </h3>
-        </div>
-        <div class="col-xs-2 text-right pull-left">
-            <?php $view['slots']->output(
-                'publishStatus',
-                $view->render('MauticCoreBundle:Helper:publishstatus_badge.html.php', ['entity' => $entity])
-            ); ?>
-        </div>
-    </div>
-    <div class="col-md-9 col-sm-6 col-xs-7 d-inline-flex justify-content-end pa-2">
-        <div class="hidden-sm hidden-xs lead-date-range-form mr-10">
-            <?php echo $view->render('MauticCoreBundle:Helper:graph_dateselect.html.php', ['dateRangeForm' => $dateRangeForm]); ?>
-        </div>
-        <div class="toolbar" id="toolbar">
-            <?php $view['slots']->output('actions'); ?>
-        </div>
-        <div class="clearfix"></div>
-    </div>
-</div>
-
 <div class="page-content">
     <div class="detail-view">
         <div class="col-md-12 np">

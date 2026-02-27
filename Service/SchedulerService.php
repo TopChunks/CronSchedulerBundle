@@ -257,6 +257,7 @@ class SchedulerService
 
             $exitCode     = $this->application->run($input, $output);
             $outputString = $output->fetch();
+            $success      = (0 === $exitCode);
 
             $completedAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
             $duration    = microtime(true) - $startTime;
@@ -266,7 +267,7 @@ class SchedulerService
                 $log->setExitCode($exitCode);
                 $log->setOutput($outputString);
                 $log->setDuration($duration);
-                $log->setIsSuccess(0 === $exitCode);
+                $log->setIsSuccess($success);
             }
 
             $now = new \DateTime('now', new \DateTimeZone('UTC'));
@@ -281,7 +282,7 @@ class SchedulerService
             $this->em->persist($job);
 
             return [
-                'success'  => true,
+                'success'  => $success,
                 'exitCode' => $exitCode,
                 'output'   => $outputString,
                 'duration' => $duration,

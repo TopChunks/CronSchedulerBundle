@@ -433,7 +433,6 @@ class CronSchedulerController extends AbstractStandardFormController
                         'cronscheduler:cronscheduler:publishown',
                         'cronscheduler:cronscheduler:publishother',
                     ], 'RETURN_ARRAY'),
-                    'ignorePageHeader' => true,
                 ],
                 'contentTemplate' => 'CronSchedulerBundle:CronScheduler:details.html.php',
                 'passthroughVars' => [

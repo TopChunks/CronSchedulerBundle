@@ -35,6 +35,6 @@ class CommandProvider
 
         $label = implode(' ', array_map('ucfirst', $parts));
 
-        return $label;
+        return sprintf('%s (%s)', $label, $command);
     }
 }

@@ -33,21 +33,21 @@ class InstallSubscriber implements EventSubscriberInterface
         $defaultCrons = [
             [
                 'name'        => 'Daily Campaign Sync',
-                'command'     => 'app:campaigns:update',
+                'command'     => 'mautic:campaigns:update',
                 'cronNotation' => '* */1 * * *',
                 'triggerMode' => 'cron',
                 'systemCron'  => 0
             ],
             [
                 'name'        => 'Daily Campaign Trigger',
-                'command'     => 'app:campaigns:trigger',
+                'command'     => 'mautic:campaigns:trigger',
                 'cronNotation' => '* */3 * * *',
                 'triggerMode' => 'cron',
                 'systemCron'  => 0
             ],
             [
                 'name'        => 'Segment Rebuild',
-                'command'     => 'app:segments:update',
+                'command'     => 'mautic:segments:update',
                 'cronNotation' => '*/5 * * * *',
                 'triggerMode' => 'cron',
                 'systemCron'  => 0

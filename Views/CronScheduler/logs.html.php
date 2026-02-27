@@ -15,15 +15,23 @@
                 );
 
                 $statusClass = $log->isSuccess() ? 'text-success' : 'text-danger';
-                $statusText  = $log->isSuccess() ? 'Success' : 'Failed';
+
+                // Determine an icon based on the command context (segment, campaign, etc.)
+                $command   = $job->getCommand();
+                $iconClass = 'fa-cog';
+                if (false !== strpos($command, 'segments')) {
+                    $iconClass = 'fa-filter';
+                } elseif (false !== strpos($command, 'campaign')) {
+                    $iconClass = 'fa-sitemap';
+                }
             ?>
 
                 <li style="list-style: none;">
                     <a href="<?= $url ?>" data-toggle="ajax" style="display: block; padding: 10px 20px; text-decoration: none; color: inherit;">
                         <div>
-                            <strong><?= $view->escape($job->getName()) ?></strong>
+                            <span><strong>#<?= (int) $job->getId() ?></strong></span>
                             <span class="pull-right <?= $statusClass ?>">
-                                <?= $statusText ?>
+                                <i class="fa <?= $iconClass ?>"></i>
                             </span>
                         </div>
 
