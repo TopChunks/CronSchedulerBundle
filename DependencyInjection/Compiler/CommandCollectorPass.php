@@ -12,15 +12,15 @@ class CommandCollectorPass implements CompilerPassInterface
         $serviceId = 'mautic.cron_scheduler.command_provider';
 
         $excludedCommands = [
-            'app:install',
-            'app:updates:apply',
-            'app:maintenance:cleanup',
-            'app:update:find',
-            'app:install:data',
-            'app:max-mind:purge',
-            'app:marketplace:install',
-            'app:marketplace:list',
-            'app:marketplace:remove',
+            'mautic:install',
+            'mautic:updates:apply',
+            'mautic:maintenance:cleanup',
+            'mautic:update:find',
+            'mautic:install:data',
+            'mautic:max-mind:purge',
+            'mautic:marketplace:install',
+            'mautic:marketplace:list',
+            'mautic:marketplace:remove',
         ];
 
         if (!$container->has($serviceId)) {
