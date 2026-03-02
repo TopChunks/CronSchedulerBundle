@@ -82,44 +82,75 @@ Mautic.showLogs = function (e) {
     const DROPDOWN_ID = 'cronLogsDropdown';
     let $dropdown = mQuery('#' + DROPDOWN_ID);
 
-    // Create dropdown
+    // Create dropdown container (panel with fixed scroll area) on first use.
     if (!$dropdown.length) {
-        $dropdown = mQuery(`
-            <ul id="${DROPDOWN_ID}"
-                class="dropdown-menu dropdown-menu-right dropdown-menu-lg"
-                style="width:360px; position:absolute; top:50px; right:15px; z-index:1000;">
-                <li class="text-center p-10 text-muted">Loading…</li>
-            </ul>
-        `);
+        const title = (typeof mauticLang !== 'undefined' && mauticLang['mautic.cron.logs.title'])
+            ? mauticLang['mautic.cron.logs.title']
+            : 'Cron scheduler logs';
+
+        $dropdown = mQuery(
+            '<ul id="' + DROPDOWN_ID + '"' +
+                ' class="dropdown-menu dropdown-menu-right dropdown-menu-lg"' +
+                ' style="width:360px; position:absolute; top:60px; right:15px; z-index:1000;">' +
+                '<li>' +
+                    '<div class="panel panel-default mb-0">' +
+                        '<div class="panel-heading">' +
+                            '<div class="panel-title">' +
+                                '<h6 class="fw-sb">' + title +
+                                    '<a href="javascript:void(0);" class="btn btn-default btn-xs btn-nospin pull-right text-danger"' +
+                                       ' onclick="mQuery(\'#' + DROPDOWN_ID + '\').hide();">' +
+                                        '<i class="fa fa-times"></i>' +
+                                    '</a>' +
+                                '</h6>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="pt-0 pb-xs pl-0 pr-0">' +
+                            '<div class="scroll-content slimscroll" id="cronLogsContainer" style="height:250px;">' +
+                                '<div class="text-center p-10 text-muted">Loading…</div>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>' +
+                '</li>' +
+            '</ul>'
+        );
 
         mQuery('body').append($dropdown);
     }
 
+    // Always refresh logs when opening the dropdown so new executions appear immediately.
     $dropdown.toggle();
 
-    if (!$dropdown.data('loaded')) {
-        mQuery.ajax({
-            url: mauticAjaxUrl,
-            type: 'POST',
-            data: {
-                action: 'plugin:cronScheduler:logs'
-            },
-            dataType: 'json',
-            success: function (response) {
-                if (response.html) {
-                    $dropdown.html(response.html);
-                    $dropdown.data('loaded', true);
-                } else {
-                    $dropdown.html('<li class="text-center p-10 text-muted">No logs available</li>');
-                }
-            },
-            error: function (xhr, status, error) {
-                console.error('AJAX Error:', status, error);
-                console.error('Response:', xhr.responseText);
-                $dropdown.html('<li class="text-danger p-10 text-center">Failed to load logs</li>');
+    mQuery.ajax({
+        url: mauticAjaxUrl,
+        type: 'POST',
+        data: {
+            action: 'plugin:cronScheduler:logs'
+        },
+        dataType: 'json',
+        success: function (response) {
+            const html = (response && response.html)
+                ? response.html
+                : '<div class="text-center p-10 text-muted">No logs available</div>';
+
+            const $container = $dropdown.find('#cronLogsContainer');
+            $container.html(html);
+
+            // Activate Mautic's AJAX/link behavior on newly injected links.
+            if (typeof Mautic.makeLinksAlive === 'function') {
+                Mautic.makeLinksAlive($container.find('a[data-toggle="ajax"]'));
             }
-        });
-    }
+            if (typeof Mautic.makeModalsAlive === 'function') {
+                Mautic.makeModalsAlive($container.find('*[data-toggle="ajaxmodal"]'));
+            }
+        },
+        error: function (xhr, status, error) {
+            console.error('AJAX Error:', status, error);
+            console.error('Response:', xhr.responseText);
+            $dropdown.find('#cronLogsContainer').html(
+                '<div class="text-danger p-10 text-center">Failed to load logs</div>'
+            );
+        }
+    });
 
     $dropdown.off('click').on('click', function (e) {
         e.stopPropagation();

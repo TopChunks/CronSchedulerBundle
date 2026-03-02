@@ -604,45 +604,45 @@ class CronSchedulerController extends AbstractStandardFormController
         /** @var \MauticPlugin\CronSchedulerBundle\Entity\ScheduledJob $entity */
         $entity = $model->getEntity($objectId);
 
-        if (null === $entity || (!$this->get('mautic.security')->hasEntityAccess(
+        if (null === $entity || !$this->get('mautic.security')->hasEntityAccess(
             'cronscheduler:cronscheduler:viewown',
             'cronscheduler:cronscheduler:viewother',
             $entity->getCreatedBy()
-        ))) {
+        )) {
             return $this->accessDenied();
         }
 
-        $result = $this->get('mautic.cronscheduler.service.scheduler')->triggerJob($entity);
+        $viewUrl = $this->generateUrl(
+            'mautic_cronscheduler_action',
+            ['objectAction' => 'view', 'objectId' => $entity->getId()]
+        );
 
-        if (!$result || empty($result['success'])) {
-            return $this->addFlash('mautic.cronscheduler.error');
+        try {
+            $result = $this->get('mautic.cronscheduler.service.scheduler')->triggerJob($entity);
+        } catch (\Exception $e) {
+            $this->addFlash(
+                'mautic.cron_scheduler.error.command.failed',
+                ['%error%' => $e->getMessage()]
+            );
+
+            return $this->redirect($viewUrl);
         }
 
-        $this->addFlash('mautic.cronscheduler.triggered.successfully');
-        return $this->redirect($this->request->headers->get('referer'));
+        if (!$result || empty($result['success'])) {
+            $this->addFlash('mautic.cron_scheduler.error.command.failed', [
+                '%error%' => isset($result['message']) ? $result['message'] : 'Unknown error',
+            ]);
+
+            return $this->redirect($viewUrl);
+        }
+
+        $this->addFlash(
+            'mautic.cron_scheduler.success.job.executed',
+            ['%name%' => $entity->getName()]
+        );
+
+        return $this->redirect($viewUrl);
     }
-
-    // public function logsAction()
-    // {
-    //     if (!$this->get('mautic.security')->isGranted('cronscheduler:cronscheduler:viewown')) {
-    //         return $this->accessDenied();
-    //     }
-
-    //     /** @var \MauticPlugin\CronSchedulerBundle\Model\CronSchedulerModel $model */
-    //     $model = $this->getModel('cronscheduler');
-
-    //     $logs = $model->getLogsRepository()->getLatestLogs();
-
-    //     $viewParameters = [
-    //         'logs' => $logs,
-    //         'tmpl' => $this->request->get('tmpl', 'index'),
-    //     ];
-
-    //     return $this->delegateView([
-    //         'viewParameters'  => $viewParameters,
-    //         'contentTemplate' => 'CronSchedulerBundle:CronScheduler:logs.html.php',
-    //     ]);
-    // }
 
     public function getModelName()
     {

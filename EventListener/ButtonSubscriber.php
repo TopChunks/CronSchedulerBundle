@@ -45,15 +45,19 @@ class ButtonSubscriber implements EventSubscriberInterface
             $navbarLogsButton = [
                 'attr' => [
                     'class' => 'btn btn-default btn-nospin dropdown-toggle',
-                    'style'       => 'background-color:transparent;position:relative;',
+                    'style' => 'background-color:primary;position:relative;font-weight:bold;z-index:1050;',
                     'href'  => 'javascript:void(0);',
                     'onclick' => 'Mautic.showLogs(event)',
                     'id' => 'cronLogsBtn',
+                    'title' => $this->translator->trans('mautic.cron_scheduler.execution.logs'),
+                    'data-toggle' => 'tooltip',
+                    'data-placement' => 'bottom',
                 ],
-                'iconClass' => 'fa fa-history',
+                'iconClass' => 'fa fa-history text-primary',
             ];
 
             $event->addButton($navbarLogsButton, ButtonHelper::LOCATION_NAVBAR);
+
             return;
         }
 
@@ -62,22 +66,26 @@ class ButtonSubscriber implements EventSubscriberInterface
             $triggerButton = [
                 'attr' => [
                     'class'       => 'btn btn-default btn-nospin',
-                    'data-ajax'   => 'true',
-                    'href'        => $this->router->generate('mautic_cronscheduler_action', ['objectAction' => 'trigger', 'objectId' => $entity->getId()]),
-                    'data-header' => $this->translator->trans('mautic.cronscheduler.trigger'),
+                    'href'        => $this->router->generate(
+                        'mautic_cronscheduler_action',
+                        ['objectAction' => 'trigger', 'objectId' => $entity->getId()]
+                    ),
+                    'data-ignore-formexit' => 'true',
                 ],
                 'iconClass' => 'fa fa-play',
                 'btnText'   => $this->translator->trans('mautic.cronscheduler.trigger'),
                 'primary'   => true,
             ];
 
-            $event->addButton(
-                $triggerButton,
-                ButtonHelper::LOCATION_PAGE_ACTIONS,
-            )->addButton(
-                $triggerButton,
-                ButtonHelper::LOCATION_LIST_ACTIONS,
-            );
+            $event
+                ->addButton(
+                    $triggerButton,
+                    ButtonHelper::LOCATION_PAGE_ACTIONS
+                )
+                ->addButton(
+                    $triggerButton,
+                    ButtonHelper::LOCATION_LIST_ACTIONS
+                );
         }
     }
 }

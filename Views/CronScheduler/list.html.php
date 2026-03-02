@@ -23,7 +23,7 @@ if (count($items)):
 
 ?>
     <div class="table-responsive">
-        <table class="table table-condensed cronscheduler-list">
+        <table class="table table-hover table-striped table-bordered cronscheduler-list">
             <thead>
                 <tr>
                     <?php
@@ -157,7 +157,7 @@ if (count($items)):
             </tbody>
         </table>
     </div>
-    <div class="table-footer">
+    <div class="panel-footer">
         <?php echo $view->render(
             'MauticCoreBundle:Helper:pagination.html.php',
             [

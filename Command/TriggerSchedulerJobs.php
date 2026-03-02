@@ -31,13 +31,13 @@ class TriggerSchedulerJobs extends Command
 
     protected function configure()
     {
-        $this->setName('cronscheduler:trigger:commands')
-            ->setDescription('Trigger scheduled commands as per Cron Scheduler configuration')
+        $this->setName('mautic:jobs:trigger')
+            ->setDescription('Trigger scheduled jobs as per Cron Scheduler configuration')
             ->addOption(
                 '--force',
                 null,
                 InputOption::VALUE_NONE,
-                'Force trigger all scheduled commands regardless of schedule'
+                'Force trigger all scheduled jobs regardless of schedule'
             )
             ->addOption(
                 '--debug',

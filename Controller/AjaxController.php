@@ -23,7 +23,6 @@ class AjaxController extends CommonAjaxController
         $model = $this->getModel('cronscheduler');
         $logs = $model->getLogsRepository()->getLatestLogs();
 
-        // Always render as dropdown for AJAX
         $html = $this->renderView(
             'CronSchedulerBundle:CronScheduler:logs.html.php',
             [

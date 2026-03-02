@@ -30,7 +30,7 @@ class DeleteOlderLogsCommand extends Command
 
     protected function configure()
     {
-        $this->setName('cronscheduler:delete:cronlogs')
+        $this->setName('mautic:delete:cronlogs')
             ->setDescription('Delete older logs to keeps database healthy');
         parent::configure();
     }

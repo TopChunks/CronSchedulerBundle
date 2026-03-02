@@ -1,12 +1,8 @@
 <?php if (!empty($logs)): ?>
 
-    <li class="dropdown-header">
-        <strong>Recent Job Executions</strong>
-    </li>
-
-    <!-- Scrollable container for logs -->
-    <li style="max-height: 400px; overflow-y: auto; overflow-x: hidden;">
-        <ul class="list-unstyled" style="margin: 0; padding: 0;">
+    <!-- Scrollable list of recent job executions -->
+    <div style="max-height: 210px; overflow-y: auto; overflow-x: hidden;">
+        <ul class="list-unstyled mb-0" style="margin: 0; padding: 0;">
             <?php foreach ($logs as $log):
                 $job = $log->getScheduledJob();
                 $url = $view['router']->path(
@@ -16,48 +12,52 @@
 
                 $statusClass = $log->isSuccess() ? 'text-success' : 'text-danger';
 
-                // Determine an icon based on the command context (segment, campaign, etc.)
-                $command   = $job->getCommand();
-                $iconClass = 'fa-cog';
-                if (false !== strpos($command, 'segments')) {
-                    $iconClass = 'fa-filter';
-                } elseif (false !== strpos($command, 'campaign')) {
-                    $iconClass = 'fa-sitemap';
+                $fullName    = $job->getName();
+                $displayName = $fullName;
+                $maxLen      = 30;
+
+                if (!empty($fullName) && mb_strlen($fullName) > $maxLen) {
+                    $displayName = mb_substr($fullName, 0, $maxLen - 1) . '…';
                 }
             ?>
 
-                <li style="list-style: none;">
-                    <a href="<?= $url ?>" data-toggle="ajax" style="display: block; padding: 10px 20px; text-decoration: none; color: inherit;">
+                <li class="pt-sm pb-sm pr-md pl-md bdr-b">
+                    <a href="<?php echo $url; ?>" data-toggle="ajax" class="text-muted" style="display: block; text-decoration: none;">
                         <div>
-                            <span><strong>#<?= (int) $job->getId() ?></strong></span>
-                            <span class="pull-right <?= $statusClass ?>">
-                                <i class="fa <?= $iconClass ?>"></i>
+                            <span title="<?php echo $view->escape($fullName); ?>">
+                                <strong><?php echo $view->escape($displayName); ?></strong>
+                            </span>
+                            <span class="pull-right <?php echo $statusClass; ?>">
+                                <i class="fa fa-eye"></i>
                             </span>
                         </div>
 
-                        <small class="text-muted">
-                            <?= $log->getStartedAt()->format('Y-m-d H:i:s') ?>
-                        </small>
+                        <div class="mt-xs">
+                            <small class="text-muted">
+                                <?php echo $log->getStartedAt()->format('Y-m-d H:i:s'); ?>
+                            </small>
+                        </div>
                     </a>
                 </li>
 
             <?php endforeach; ?>
         </ul>
-    </li>
+    </div>
 
-    <li class="divider"></li>
-
-    <li class="text-center">
-        <a href="<?= $view['router']->path('mautic_cronscheduler_index', ['page' => 1]) ?>"
+    <div class="text-center pt-15 bdr-t">
+        <a href="<?php echo $view['router']->path('mautic_cronscheduler_index', ['page' => 1]); ?>"
             data-toggle="ajax">
-            View All Jobs
+            <?php echo $view['translator']->trans('mautic.cron.logs.viewall'); ?>
         </a>
-    </li>
+    </div>
 
 <?php else: ?>
 
-    <li class="text-center p-10 text-muted">
-        No job executions yet
-    </li>
+    <!-- Centered empty-state message within the scrollable area -->
+    <div style="height: 210px; display: flex; align-items: center; justify-content: center;">
+        <div class="text-center p-10 text-muted">
+            <?php echo $view['translator']->trans('mautic.cron.logs.empty'); ?>
+        </div>
+    </div>
 
 <?php endif; ?>
