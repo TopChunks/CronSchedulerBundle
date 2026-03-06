@@ -26,37 +26,45 @@ class InstallSubscriber implements EventSubscriberInterface
 
     public function onPluginInstall(PluginInstallEvent $event)
     {
-        if ($event->getPlugin()->getName() !== 'Cron Scheduler') {
+        if ($event->getPlugin()->getName() !== 'Scheduled Jobs') {
             return;
         }
 
         $defaultCrons = [
             [
-                'name'        => 'Daily Campaign Sync',
-                'command'     => 'mautic:campaigns:update',
-                'cronNotation' => '* */1 * * *',
-                'triggerMode' => 'cron',
-                'systemCron'  => 0
-            ],
-            [
-                'name'        => 'Daily Campaign Trigger',
-                'command'     => 'mautic:campaigns:trigger',
-                'cronNotation' => '* */3 * * *',
-                'triggerMode' => 'cron',
-                'systemCron'  => 0
-            ],
-            [
                 'name'        => 'Segment Rebuild',
                 'command'     => 'mautic:segments:update',
-                'cronNotation' => '*/5 * * * *',
                 'triggerMode' => 'cron',
+                'cronNotation'  => '0,15,30,45 * * * *',
+                'isPublished'   => 1,
+                'priority'      => 10,
+                'systemCron'  => 0
+            ],
+            [
+                'name'        => 'Campaign Update',
+                'command'     => 'mautic:campaigns:update',
+                'triggerMode' => 'cron',
+                'cronNotation'  => '5,20,35,50 * * * *',
+                'isPublished'   => 1,
+                'priority'      => 9,
+                'systemCron'  => 0
+            ],
+            [
+                'name'        => 'Campaign Trigger',
+                'command'     => 'mautic:campaigns:trigger',
+                'triggerMode' => 'cron',
+                'cronNotation'  => '10,25,40,55 * * * *',
+                'isPublished'   => 1,
+                'priority'      => 8,
                 'systemCron'  => 0
             ],
             [
                 'name'        => 'Cleanup Old Logs Data',
-                'command'     => 'cronscheduler:delete:cronlogs',
-                'cronNotation' => '0 3 * * *',
+                'command'     => 'mautic:delete:joblogs',
                 'triggerMode' => 'cron',
+                'cronNotation'  => '0 3 * * *',
+                'isPublished'   => 1,
+                'priority'      => 0,
                 'systemCron'  => 1
             ],
         ];
@@ -76,7 +84,7 @@ class InstallSubscriber implements EventSubscriberInterface
             $job->setTriggerMode($cronData['triggerMode']);
             $job->setSystemCron($cronData['systemCron']);
             $job->setIsPublished(true);
-            $job->setRunOnRecovery(false);
+            $job->setPriority($cronData['priority']);
 
             $this->em->persist($job);
         }

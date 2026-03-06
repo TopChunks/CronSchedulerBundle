@@ -188,8 +188,6 @@ class CronSchedulerController extends AbstractStandardFormController
                         );
                     }
                 }
-            } else {
-                $session->remove('mautic.cronscheduler.' . $entity->getId() . '.content');
             }
 
             if ($cancelled) {
@@ -245,7 +243,7 @@ class CronSchedulerController extends AbstractStandardFormController
         /** @var \MauticPlugin\CronSchedulerBundle\Model\CronSchedulerModel $model */
         $model = $this->getModel('cronscheduler');
         $method = $this->request->getMethod();
-        /** @var \MauticPlugin\CronSchedulerBundle\Entity\ScheduledJob $entity */
+        /** @var ?\MauticPlugin\CronSchedulerBundle\Entity\ScheduledJob $entity */
         $entity = $model->getEntity($objectId);
 
         if ($entity && $entity->getSystemCron()) {
@@ -275,7 +273,7 @@ class CronSchedulerController extends AbstractStandardFormController
                         'flashes' => [
                             [
                                 'type' => 'error',
-                                'msg'  => 'mautic.cron.error.notfound',
+                                'msg'  => 'mautic.cronscheduler.error.notfound',
                                 'msgVars' => ['%id%' => $objectId],
                             ]
                         ]
@@ -361,7 +359,7 @@ class CronSchedulerController extends AbstractStandardFormController
 
         $security = $this->get('mautic.security');
 
-        /** @var \MauticPlugin\CronSchedulerBundle\Entity\ScheduledJob $entity */
+        /** @var ?\MauticPlugin\CronSchedulerBundle\Entity\ScheduledJob $entity */
         $entity = $model->getEntity($objectId);
 
         if ($entity && $entity->getSystemCron()) {
@@ -382,7 +380,7 @@ class CronSchedulerController extends AbstractStandardFormController
                 'flashes' => [
                     [
                         'type' => 'error',
-                        'msg'  => 'mautic.cron.error.notfound',
+                        'msg'  => 'mautic.cronscheduler.error.notfound',
                         'msgVars' => ['%id%' => $objectId],
                     ]
                 ]
@@ -395,22 +393,6 @@ class CronSchedulerController extends AbstractStandardFormController
             return $this->accessDenied();
         }
 
-        $session = $this->get('session');
-
-        $logPage = (int) $this->request->get('logPage', $session->get('mautic.cronscheduler.logs.page', 1));
-        $logLimit = (int) $session->get(
-            'mautic.cronscheduler.logs.limit',
-            $this->coreParametersHelper->get('default_pagelimit')
-        );
-
-        $logStart = ($logPage - 1) * $logLimit;
-        if ($logStart < 0) {
-            $logStart = 0;
-        }
-
-        $session->set('mautic.cronscheduler.logs.page', $logPage);
-
-        $logs = $this->getModel('core.auditlog')->getLogForObject('cronscheduler.scheduledjob', $entity->getId(), $entity->getDateAdded());
         $dateRangeValues = $this->request->get('dateRange', null);
         $action = $this->generateUrl('mautic_cronscheduler_action', ['objectAction' => 'view', 'objectId' => $objectId]);
         $dateRangeFrom = $this->get('form.factory')->create(DateRangeType::class, $dateRangeValues, ['action' => $action]);
@@ -418,7 +400,6 @@ class CronSchedulerController extends AbstractStandardFormController
             [
                 'viewParameters' => [
                     'entity'       => $entity,
-                    'logs'         => $logs,
                     'dateRangeForm' => $dateRangeFrom->createView(),
                     'tmpl'         => $this->request->isXmlHttpRequest() ? $this->request->get('tmpl', 'index') : 'index',
                     'isEmbedded'      => $this->request->get('isEmbedded') ? $this->request->get('isEmbedded') : false,
@@ -462,7 +443,7 @@ class CronSchedulerController extends AbstractStandardFormController
         if ('POST' === $this->request->getMethod()) {
             /** @var \MauticPlugin\CronSchedulerBundle\Model\CronSchedulerModel $model */
             $model = $this->getModel('cronscheduler');
-            /** @var \MauticPlugin\CronSchedulerBundle\Entity\ScheduledJob $entity */
+            /** @var ?\MauticPlugin\CronSchedulerBundle\Entity\ScheduledJob $entity */
             $entity = $model->getEntity($objectId);
 
             if ($entity && $entity->getSystemCron()) {
@@ -472,7 +453,7 @@ class CronSchedulerController extends AbstractStandardFormController
             if (null === $entity) {
                 $flashes[] = [
                     'type' => 'error',
-                    'msg'  => 'mautic.cron.error.notfound',
+                    'msg'  => 'mautic.cronscheduler.error.notfound',
                     'msgVars' => ['%id%' => $objectId],
                 ];
             } elseif (!$this->get('mautic.security')->hasEntityAccess(
@@ -596,7 +577,7 @@ class CronSchedulerController extends AbstractStandardFormController
         return $this->newAction($entity);
     }
 
-    public function triggerAction($objectId)
+    public function runAction($objectId)
     {
         /** @var \MauticPlugin\CronSchedulerBundle\Model\CronSchedulerModel $model */
         $model = $this->getModel('cronscheduler');
@@ -618,7 +599,7 @@ class CronSchedulerController extends AbstractStandardFormController
         );
 
         try {
-            $result = $this->get('mautic.cronscheduler.service.scheduler')->triggerJob($entity);
+            $result = $this->get('mautic.cronscheduler.service.scheduler')->runJobManually($entity);
         } catch (\Exception $e) {
             $this->addFlash(
                 'mautic.cron_scheduler.error.command.failed',

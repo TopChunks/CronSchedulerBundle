@@ -32,7 +32,7 @@ class TriggerSchedulerJobs extends Command
     protected function configure()
     {
         $this->setName('mautic:jobs:trigger')
-            ->setDescription('Trigger scheduled jobs as per Cron Scheduler configuration')
+            ->setDescription('Trigger scheduled jobs as per configuration')
             ->addOption(
                 '--force',
                 null,
@@ -57,7 +57,7 @@ class TriggerSchedulerJobs extends Command
         // Get all published jobs
         $scheduledJobs = $this->model->getRepository()->findBy([
             'isPublished' => true,
-        ]);
+        ], ['priority' => 'DESC']);
 
         if (empty($scheduledJobs)) {
             $io->warning('No active scheduled jobs found.');
@@ -82,7 +82,7 @@ class TriggerSchedulerJobs extends Command
                     $io->writeln('  Interval: ' . $job->getTriggerInterval() . ' ' . $job->getTriggerIntervalUnit());
                     $io->writeln('  Last Run: ' . ($job->getLastRunAt() ? $job->getLastRunAt()->format('Y-m-d H:i:s') : 'Never'));
                     $io->writeln('  Next Run: ' . ($job->getNextRunAt() ? $job->getNextRunAt()->format('Y-m-d H:i:s') : 'NULL'));
-                    $io->writeln('  Run on Recovery: ' . ($job->getRunOnRecovery() ? 'Yes' : 'No'));
+                    $io->writeln('  Priority: ' . $job->getPriority());
                 }
 
                 $isDue = $force ? true : $this->schedulerService->isDue($job);

@@ -34,7 +34,7 @@
 
                         <div class="mt-xs">
                             <small class="text-muted">
-                                <?php echo $log->getStartedAt()->format('Y-m-d H:i:s'); ?>
+                                <?php echo $view['date']->toFull($log->getStartedAt()); ?>
                             </small>
                         </div>
                     </a>

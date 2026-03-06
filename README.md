@@ -1,6 +1,6 @@
 # CronSchedulerBundle
 
-CronSchedulerBundle is a Mautic plugin that lets you define, schedule, and monitor Symfony console commands directly from the Mautic UI.  
+CronSchedulerBundle is a Mautic plugin that lets you define, schedule, and monitor Symfony console commands directly from the Mautic UI.
 It provides:
 
 - A **Scheduled Jobs** UI (list and detail views) under Mautic.
@@ -9,7 +9,7 @@ It provides:
 - Persistent **execution logs** with start/end time, duration, exit code, output, and error messages.
 - A **navbar “executed logs” dropdown** showing the most recent job runs.
 
-> **Important:** CronSchedulerBundle relies on the `dragonmantank/cron-expression` composer package for parsing and evaluating cron expressions.  
+> **Important:** CronSchedulerBundle relies on the `dragonmantank/cron-expression` composer package for parsing and evaluating cron expressions.
 > You **must** install this dependency in your Mautic project (see [Requirements](#requirements)).
 
 ---
@@ -46,15 +46,15 @@ At a high level, the bundle introduces:
   - Locking them.
   - Executing their console commands.
   - Recording success/failure and calculating the next run.
-- A **console command** `TriggerSchedulerJobs` (service `mautic.cronscheduler.command.runscheduledjobs`) that:
+- A **console command** `TriggerSchedulerJobs` (service `mautic:jobs:trigger`) that:
   - Scans for due jobs.
   - Delegates execution to `SchedulerService`.
 - A set of **controllers and views**:
   - `CronSchedulerController` for list, detail, form, and manual triggering.
   - PHP templates for list view, detail view, execution logs, and the navbar dropdown.
 - An **event subscriber** `ButtonSubscriber` that:
-  - Injects a “Cron logs” button in the navbar.
-  - Injects a “Trigger” button in the Cron Scheduler job list and details views.
+  - Injects a “Job Execution Logs” button in the navbar.
+  - Injects a “Trigger” button in the Job Scheduler job list and details views.
 
 ### Entities
 
@@ -75,7 +75,7 @@ Represents a scheduled job definition. Key fields include:
 - `triggerRestrictedDaysOfWeek` – Optional day‑of‑week restrictions.
 - `lastRunAt` / `nextRunAt` – Timestamps for last and next execution.
 - `lockedAt` – Timestamp used to prevent concurrent execution by `SchedulerService::acquireLock()`.
-- `runOnRecovery` – Flag to prioritize jobs that were skipped while the server was down or when cron did not run.
+- `priority` – Priority of the job (higher priority jobs are executed first).
 
 #### `JobExecutionLog`
 
@@ -249,7 +249,7 @@ Below that, if there are execution logs:
       'class' => 'btn btn-default btn-nospin dropdown-toggle',
       'style' => 'background-color:transparent;position:relative;font-weight:bold;z-index:1050;',
       'href'  => 'javascript:void(0);',
-      'onclick' => 'Mautic.showLogs(event)',
+      'onclick' => 'Mautic.showRecentJobLogs(event)',
       'id' => 'cronLogsBtn',
       'title' => $this->translator->trans('mautic.cron_scheduler.execution.logs'),
       'data-toggle' => 'tooltip',
@@ -258,7 +258,7 @@ Below that, if there are execution logs:
   'iconClass' => 'fa fa-history text-primary',
   ```
 
-- The corresponding JS (`cronscheduler.js`) implements `Mautic.showLogs(e)`:
+- The corresponding JS (`cronscheduler.js`) implements `Mautic.showRecentJobLogs(e)`:
   - Dynamically creates a dropdown `<ul id="cronLogsDropdown" class="dropdown-menu dropdown-menu-right dropdown-menu-lg">` containing:
     - A `panel panel-default` with header/title and a **close (X)** button.
     - A fixed-height scrollable container (`#cronLogsContainer`, height ~250px).
@@ -334,7 +334,7 @@ This makes the dropdown behave like core notification dropdowns: consistent pane
   - For complex cron + day/time restrictions, inspect `nextRunAt` on the job and adjust constraints as needed.
 
 - **Clicking Trigger causes a 500 error:**
-  - The controller now catches exceptions from `triggerJob()` and shows a flash:  
+  - The controller now catches exceptions from `triggerJob()` and shows a flash:
     `mautic.cron_scheduler.error.command.failed` with the underlying error message.
   - Check the flash notification and adjust your command or arguments.
   - Also check Mautic’s logs under `var/logs` for stack traces if needed.

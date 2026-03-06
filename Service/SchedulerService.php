@@ -10,6 +10,7 @@ use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Console\Input\StringInput;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\HttpKernel\KernelInterface;
+use Mautic\CoreBundle\Helper\DateTimeHelper;
 
 class SchedulerService
 {
@@ -28,21 +29,20 @@ class SchedulerService
     /**
      * System timezone for user display.
      *
-     * @var \DateTimeZone
+     * @var DateTimeHelper
      */
-    private $systemTimezone;
+    private $dateTimeHelper;
 
     public function __construct(EntityManager $em, KernelInterface $kernel)
     {
         $this->em     = $em;
         $this->kernel = $kernel;
-        // Store system timezone, but all DB operations will be in UTC
-        $this->systemTimezone = new \DateTimeZone(date_default_timezone_get());
+        $this->dateTimeHelper = new DateTimeHelper(null, null, 'local');
     }
 
     public function isDue(ScheduledJob $job): bool
     {
-        $now = new \DateTime('now', new \DateTimeZone('UTC'));
+        $now = $this->dateTimeHelper->getLocalDateTime();
 
         if ($job->getPublishUp() && $job->getPublishUp() > $now) {
             return false;
@@ -79,29 +79,19 @@ class SchedulerService
             return false;
         }
 
-        if (
-            $job->getRunOnRecovery()
-            && $job->getNextRunAt()
-            && $job->getNextRunAt() < $now
-        ) {
-            $lastRun = $job->getLastRunAt();
-            if (!$lastRun || $lastRun < $job->getNextRunAt()) {
-                return true;
-            }
+        if ($job->getNextRunAt() && $now >= $job->getNextRunAt()) {
+            return true;
+        }
+        
+        //If the next run time is not set, then calculate it and return false. So that the next run time is set and the job is scheduled to run in the next run time.
+        $nextRunAt = $this->calculateNextIntervalRun($job, $job->getLastRunAt() ?? $now);
+        if($nextRunAt) {
+            $job->setNextRunAt($nextRunAt);
+            $this->em->persist($job);
+            $this->em->flush();
         }
 
-        if ($job->getNextRunAt() && $now < $job->getNextRunAt()) {
-            return false;
-        }
-
-        $unit = $job->getTriggerIntervalUnit();
-
-        if ('i' === $unit || 'h' === $unit) {
-            return $this->meetsTimeRestrictions($job, $now);
-        }
-
-        return $this->meetsTimeRestrictions($job, $now)
-            && $this->isNthValidDay($job, $now);
+        return false;
     }
 
     private function isCronDue(ScheduledJob $job, \DateTime $now): bool
@@ -114,22 +104,13 @@ class SchedulerService
             return false;
         }
 
-        if ($job->getRunOnRecovery() && $job->getNextRunAt() && $job->getNextRunAt() < $now) {
-            $lastRun = $job->getLastRunAt();
-            if (!$lastRun || $lastRun < $job->getNextRunAt()) {
-                return true;
-            }
-        }
-
         try {
-            $cron = CronExpression::factory($job->getCronNotation());
-
+            $cron = new CronExpression($job->getCronNotation());
             if (!$cron->isDue($now)) {
                 return false;
             }
 
-            return $this->meetsTimeRestrictions($job, $now)
-                && $this->meetsDayRestrictions($job, $now);
+            return true;
         } catch (\Exception $e) {
             return false;
         }
@@ -214,6 +195,34 @@ class SchedulerService
         return $validDayCount >= $interval && $this->meetsDayRestrictions($job, $now);
     }
 
+    public function runJobManually(ScheduledJob $job)
+    {
+        try {
+            $commandString = trim($job->getCommand() . ' ' . $job->getArguments());
+            $input         = new StringInput($commandString);
+
+            if (null === $this->application) {
+                $this->application = new Application($this->kernel);
+                $this->application->setAutoExit(false);
+                $this->application->setCatchExceptions(true);
+            }
+
+            $output = new BufferedOutput();
+
+            $exitCode     = $this->application->run($input, $output);
+            $outputString = $output->fetch();
+            $success      = (0 === $exitCode);
+
+            return [
+                'success'  => $success,
+                'exitCode' => $exitCode,
+                'message'  => $outputString,
+            ];
+        } catch (\Exception $e) {
+            throw new \Exception("Failed to run job '{$job->getName()}': " . $e->getMessage());
+        }
+    }
+
     /**
      * Trigger a scheduled job by executing its command.
      *
@@ -230,7 +239,7 @@ class SchedulerService
         }
 
         $startTime = microtime(true);
-        $startedAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+        $startedAt = $this->dateTimeHelper->getLocalDateTime();
 
         $log = null;
 
@@ -259,7 +268,7 @@ class SchedulerService
             $outputString = $output->fetch();
             $success      = (0 === $exitCode);
 
-            $completedAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+            $completedAt = $this->dateTimeHelper->getLocalDateTime();
             $duration    = microtime(true) - $startTime;
 
             if ($log) {
@@ -270,10 +279,10 @@ class SchedulerService
                 $log->setIsSuccess($success);
             }
 
-            $now = new \DateTime('now', new \DateTimeZone('UTC'));
+            $now = $this->dateTimeHelper->getLocalDateTime();
             $job->setLastRunAt($now);
 
-            $nextRunAt = $this->calculateNextRunTime($job, $now);
+            $nextRunAt = $this->calculateNextRunTime($job);
             $job->setNextRunAt($nextRunAt);
 
             if ($log) {
@@ -288,7 +297,7 @@ class SchedulerService
                 'duration' => $duration,
             ];
         } catch (\Exception $e) {
-            $completedAt = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+            $completedAt = $this->dateTimeHelper->getLocalDateTime();
             $duration    = microtime(true) - $startTime;
 
             if ($log) {
@@ -310,7 +319,7 @@ class SchedulerService
                 $this->em->persist($log);
             }
 
-            $now = new \DateTime('now', new \DateTimeZone('UTC'));
+            $now = $this->dateTimeHelper->getLocalDateTime();
             $job->setLastRunAt($now);
             $nextRunAt = $this->calculateNextRunTime($job, $now);
             $job->setNextRunAt($nextRunAt);
@@ -329,10 +338,7 @@ class SchedulerService
             return 0;
         }
 
-        $cutoff = new \DateTimeImmutable(
-            sprintf('-%d days', $retentionDays),
-            new \DateTimeZone('UTC')
-        );
+        $cutoff = $this->dateTimeHelper->getLocalDateTime()->modify(sprintf('-%d days', $retentionDays));
 
         /** @var \MauticPlugin\CronSchedulerBundle\Entity\JobExecutionLogRepository $repo */
         $repo = $this->em->getRepository(JobExecutionLog::class);
@@ -340,10 +346,10 @@ class SchedulerService
         return $repo->deleteOlderLogs($cutoff);
     }
 
-    public function calculateNextRunTime(ScheduledJob $job, \DateTime $now = null): ?\DateTime
+    public function calculateNextRunTime(ScheduledJob $job, ?\DateTime $now = null): ?\DateTime
     {
         if (!$now) {
-            $now = new \DateTime('now', new \DateTimeZone('UTC'));
+            $now = $this->dateTimeHelper->getLocalDateTime();
         }
 
         switch ($job->getTriggerMode()) {
@@ -351,7 +357,7 @@ class SchedulerService
                 return $this->calculateNextCronRun($job, $now);
 
             case 'date':
-                return null; // one-time job
+                return $job->getTriggerDate();
 
             case 'interval':
                 return $this->calculateNextIntervalRun($job, $now);
@@ -367,20 +373,8 @@ class SchedulerService
         }
 
         try {
-            $cron = CronExpression::factory($job->getCronNotation());
+            $cron = new CronExpression($job->getCronNotation());
             $next = $cron->getNextRunDate($now);
-
-            $maxAttempts = 366; // Prevent infinite loops
-            $attempts    = 0;
-
-            while ($attempts < $maxAttempts) {
-                if ($this->meetsTimeRestrictions($job, $next) && $this->meetsDayRestrictions($job, $next)) {
-                    return $next;
-                }
-
-                $next = $cron->getNextRunDate($next);
-                ++$attempts;
-            }
 
             return $next;
         } catch (\Exception $e) {
@@ -397,24 +391,49 @@ class SchedulerService
             return null;
         }
 
-        if ('i' === $unit || 'h' === $unit) {
-            $next = clone $now;
+        $allowedDays = $job->getTriggerRestrictedDaysOfWeek();
 
-            $normalizedUnit = $this->normalizeIntervalUnit($unit);
-            $next->modify(sprintf('+%d %s', $interval, $normalizedUnit));
+        $next = clone $now;
 
-            if ($job->getTriggerHour()) {
-                $time = $job->getTriggerHour();
-                $next->setTime(
-                    (int) $time->format('H'),
-                    (int) $time->format('i')
-                );
-            }
+        $normalizedUnit = $this->normalizeIntervalUnit($unit);
+        $next->modify(sprintf('+%d %s', $interval, $normalizedUnit));
 
+        if($unit === 'i' || $unit === 'h') {
             return $next;
         }
 
-        return $this->calculateNextRestrictedIntervalRun($job, $now);
+        if ($unit === 'd' || $unit === 'm' || $unit === 'y') {
+            // Apply time restriction
+            if ($job->getTriggerHour()) {
+                $time = $job->getTriggerHour();
+                $next->setTime((int) $time->format('H'), (int) $time->format('i'));
+            }else{
+                $next->setTime(0, 0, 0);
+            }
+        }
+
+        if(!empty($allowedDays)){
+            $maxAttempts   = 366; // Safety limit
+            $attempts      = 0;
+
+            while ($attempts < $maxAttempts) {
+                $next->modify('+1 day');
+
+                $dayOfWeek = (int) $next->format('N');
+
+                if (in_array(-1, $allowedDays, true)) {
+                    if ($dayOfWeek >= 1 && $dayOfWeek <= 5) {
+                        break;
+                    }
+                } elseif (in_array($dayOfWeek, $allowedDays, true)) {
+                    break;
+                }
+
+                ++$attempts;
+            }
+        }
+
+        return $next;
     }
 
     /**
@@ -438,56 +457,6 @@ class SchedulerService
         }
     }
 
-    private function calculateNextRestrictedIntervalRun(ScheduledJob $job, \DateTime $now): ?\DateTime
-    {
-        $interval    = $job->getTriggerInterval();
-        $unit        = $job->getTriggerIntervalUnit();
-        $allowedDays = $job->getTriggerRestrictedDaysOfWeek();
-
-        $next = clone $now;
-
-        // If no day restrictions, simple calculation
-        if (empty($allowedDays)) {
-            $normalizedUnit = $this->normalizeIntervalUnit($unit);
-            $next->modify(sprintf('+%d %s', $interval, $normalizedUnit));
-
-            // Apply time restriction
-            if ($job->getTriggerHour()) {
-                $time = $job->getTriggerHour();
-                $next->setTime((int) $time->format('H'), (int) $time->format('i'));
-            }
-
-            return $next;
-        }
-
-        $validDayCount = 0;
-        $maxAttempts   = 366; // Safety limit
-        $attempts      = 0;
-
-        while ($validDayCount < $interval && $attempts < $maxAttempts) {
-            $next->modify('+1 day');
-
-            $dayOfWeek = (int) $next->format('w');
-
-            if (in_array(-1, $allowedDays, true)) {
-                if ($dayOfWeek >= 1 && $dayOfWeek <= 5) {
-                    ++$validDayCount;
-                }
-            } elseif (in_array($dayOfWeek, $allowedDays, true)) {
-                ++$validDayCount;
-            }
-
-            ++$attempts;
-        }
-
-        if ($job->getTriggerHour()) {
-            $time = $job->getTriggerHour();
-            $next->setTime((int) $time->format('H'), (int) $time->format('i'));
-        }
-
-        return $next;
-    }
-
     /**
      * Acquire lock for job execution
      * Prevents concurrent execution of the same job.
@@ -497,14 +466,14 @@ class SchedulerService
         $lockedAt = $job->getLockedAt();
 
         if ($lockedAt) {
-            $thirtyMinutesAgo = new \DateTime('-30 minutes', new \DateTimeZone('UTC'));
+            $thirtyMinutesAgo = $this->dateTimeHelper->getLocalDateTime()->modify('-30 minutes');
             if ($lockedAt > $thirtyMinutesAgo) {
                 // Job is still locked
                 return false;
             }
         }
 
-        $job->setLockedAt(new \DateTime('now', new \DateTimeZone('UTC')));
+        $job->setLockedAt($this->dateTimeHelper->getLocalDateTime());
         $this->em->flush();
 
         return true;

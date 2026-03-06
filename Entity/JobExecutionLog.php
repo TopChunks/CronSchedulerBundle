@@ -33,11 +33,11 @@ class JobExecutionLog extends CommonEntity
             ->addJoinColumn('scheduled_job_id', 'id', false, false, 'CASCADE')
             ->build();
 
-        $builder->createField('startedAt', Types::DATETIME_IMMUTABLE)
+        $builder->createField('startedAt', Types::DATETIME_MUTABLE)
             ->columnName('started_at')
             ->build();
 
-        $builder->createField('completedAt', Types::DATETIME_IMMUTABLE)
+        $builder->createField('completedAt', Types::DATETIME_MUTABLE)
             ->columnName('completed_at')
             ->nullable()
             ->build();

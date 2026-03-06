@@ -13,35 +13,39 @@ class LoadDefaultCrons extends AbstractFixture implements OrderedFixtureInterfac
     {
         $defaultCrons = [
             [
-                'name'        => 'Daily Campaign Sync',
-                'command'     => 'app:campaigns:update',
-                'triggerMode' => 'cron',
-                'cronNotation'  => '* */1 * * *',
-                'isPublished'   => 1,
-                'systemCron'  => 0
-            ],
-            [
-                'name'        => 'Daily Campaign Trigger',
-                'command'     => 'app:campaigns:trigger',
-                'triggerMode' => 'cron',
-                'cronNotation'  => '* */3 * * *',
-                'isPublished'   => 1,
-                'systemCron'  => 0
-            ],
-            [
                 'name'        => 'Segment Rebuild',
-                'command'     => 'app:segments:update',
+                'command'     => 'mautic:segments:update',
                 'triggerMode' => 'cron',
-                'cronNotation'  => '*/5 * * * *',
+                'cronNotation'  => '0,15,30,45 * * * *',
                 'isPublished'   => 1,
+                'priority'      => 10,
+                'systemCron'  => 0
+            ],
+            [
+                'name'        => 'Campaign Update',
+                'command'     => 'mautic:campaigns:update',
+                'triggerMode' => 'cron',
+                'cronNotation'  => '5,20,35,50 * * * *',
+                'isPublished'   => 1,
+                'priority'      => 9,
+                'systemCron'  => 0
+            ],
+            [
+                'name'        => 'Campaign Trigger',
+                'command'     => 'mautic:campaigns:trigger',
+                'triggerMode' => 'cron',
+                'cronNotation'  => '10,25,40,55 * * * *',
+                'isPublished'   => 1,
+                'priority'      => 8,
                 'systemCron'  => 0
             ],
             [
                 'name'        => 'Cleanup Old Logs Data',
-                'command'     => 'cronscheduler:delete:cronlogs',
+                'command'     => 'mautic:delete:joblogs',
                 'triggerMode' => 'cron',
                 'cronNotation'  => '0 3 * * *',
                 'isPublished'   => 1,
+                'priority'      => 0,
                 'systemCron'  => 1
             ],
         ];
@@ -60,6 +64,7 @@ class LoadDefaultCrons extends AbstractFixture implements OrderedFixtureInterfac
             $job->setCommand($cronData['command']);
             $job->setCronNotation($cronData['cronNotation']);
             $job->setIsPublished(true);
+            $job->setPriority($cronData['priority']);
             $job->setTriggerMode($cronData['triggerMode']);
             $job->setSystemCron($cronData['systemCron']);
 

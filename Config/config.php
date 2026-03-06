@@ -3,8 +3,8 @@
 declare(strict_types=1);
 
 return [
-    'name'        => 'Cron Scheduler',
-    'description' => 'Schedule jobs without cron file using Cron Scheduler plugin.',
+    'name'        => 'Scheduled Jobs',
+    'description' => 'Schedules mautic commands to run at specified intervals. No need to define mutiple commands in cron file. Plugin is fully compatible with system cron.',
     'author'      => 'Topchunks Solutions Pvt Ltd',
     'version'     => '1.0.0',
     'menu'        => [

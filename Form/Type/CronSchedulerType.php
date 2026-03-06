@@ -11,6 +11,7 @@ use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\DateTimeType;
 use Symfony\Component\Form\Extension\Core\Type\NumberType;
+use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\Validator\Constraints\Callback;
@@ -65,6 +66,20 @@ class CronSchedulerType extends AbstractType
                 'attr'       => [
                     'class' => 'form-control',
                 ],
+            ]
+        );
+
+        $builder->add(
+            'priority',
+            NumberType::class,
+            [
+                'label' => 'mautic.cron_scheduler.form.priority',
+                'attr' => [
+                    'class' => 'form-control',
+                    'tooltip' => 'mautic.cron_scheduler.form.priority.tooltip',
+                ],
+                'label_attr' => ['class' => 'control-label'],
+                'required' => false,
             ]
         );
 
@@ -147,6 +162,21 @@ class CronSchedulerType extends AbstractType
                 ],
                 'widget' => 'single_text',
                 'format' => 'yyyy-MM-dd HH:mm',
+                'constraints' => [
+                    new Callback([
+                        'callback' => function ($value, ExecutionContextInterface $context) {
+                            $form = $context->getRoot();
+                            $triggerMode = $form->get('triggerMode')->getData();
+                            if ($triggerMode === 'date') {
+                                if (empty($value)) {
+                                    $context->buildViolation('mautic.cronscheduler.triggerDate.required')
+                                        ->addViolation();
+                                    return;
+                                }
+                            }
+                        }
+                    ])
+                ],
             ]
         );
 
@@ -159,7 +189,21 @@ class CronSchedulerType extends AbstractType
                     'class'    => 'form-control',
                     'preaddon' => 'symbol-hashtag',
                 ],
-                'data'  => 1,
+                'constraints' => [
+                    new Callback([
+                        'callback' => function ($value, ExecutionContextInterface $context) {
+                            $form = $context->getRoot();
+                            $triggerMode = $form->get('triggerMode')->getData();
+                            if ($triggerMode === 'interval') {
+                                if (empty($value)) {
+                                    $context->buildViolation('mautic.cronscheduler.interval.required')
+                                        ->addViolation();
+                                    return;
+                                }
+                            }
+                        }
+                    ])
+                ],
             ]
         );
 
@@ -174,6 +218,21 @@ class CronSchedulerType extends AbstractType
             ],
             'attr' => [
                 'class' => 'form-control',
+            ],
+            'constraints' => [
+                new Callback([
+                    'callback' => function ($value, ExecutionContextInterface $context) {
+                        $form = $context->getRoot();
+                        $triggerMode = $form->get('triggerMode')->getData();
+                        if ($triggerMode === 'interval') {
+                            if (empty($value)) {
+                                $context->buildViolation('mautic.cronscheduler.triggerIntervalUnit.required')
+                                    ->addViolation();
+                                return;
+                            }
+                        }
+                    }
+                ])
             ]
         ]);
 
@@ -191,7 +250,7 @@ class CronSchedulerType extends AbstractType
                 ],
                 'required' => false,
                 'data'  => ($data) ? $data->format('H:i') : $data,
-            ]
+              ],
         );
 
         $builder->add(
@@ -215,31 +274,6 @@ class CronSchedulerType extends AbstractType
                 'expanded'          => true,
                 'multiple'          => true,
                 'required'          => false,
-            ]
-        );
-
-        $builder->add(
-            'runOnRecovery',
-            YesNoButtonGroupType::class,
-            [
-                'label' => 'mautic.cron_scheduler.run_on_recovery',
-                'data'  => $entity instanceof \MauticPlugin\CronSchedulerBundle\Entity\ScheduledJob
-                    ? (bool) $entity->getRunOnRecovery()
-                    : false,
-                'attr' => [
-                    'tooltip' => 'mautic.cronscheduler.run_on_recovery.tooltip'
-                ]
-            ]
-        );
-
-        $builder->add(
-            'systemCron',
-            YesNoButtonGroupType::class,
-            [
-                'label' => 'mautic.cronscheduler.is.system_cron',
-                'data'  => $entity instanceof \MauticPlugin\CronSchedulerBundle\Entity\ScheduledJob
-                    ? (bool) $entity->getSystemCron()
-                    : false,
             ]
         );
 
@@ -272,9 +306,9 @@ class CronSchedulerType extends AbstractType
 
                                 // Validate cron expression using vendor package
                                 try {
-                                    CronExpression::factory($value);
+                                    new CronExpression($value);
                                 } catch (\Exception $e) {
-                                    $context->buildViolation('Invalid cron notation: ' . $e->getMessage())
+                                    $context->buildViolation('mautic.cron_scheduler.cron_notation.invalid')
                                         ->addViolation();
                                 }
                             }

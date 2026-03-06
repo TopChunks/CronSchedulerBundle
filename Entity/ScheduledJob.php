@@ -40,8 +40,7 @@ class ScheduledJob extends FormEntity
     private $lockedAt;
     private $executionLogs;
     private $cronNotation;
-    private $runOnRecovery;
-    private $systemCron;
+    private $systemCron = false;
 
     /**
      * @var \DateTime|null
@@ -51,7 +50,7 @@ class ScheduledJob extends FormEntity
     /**
      * @var int
      */
-    private $triggerInterval = 0;
+    private $triggerInterval = 1;
 
     /**
      * @var string
@@ -72,6 +71,11 @@ class ScheduledJob extends FormEntity
      * @var string
      */
     private $triggerMode;
+    
+    /**
+     * @var int
+     */
+    private $priority = 0;
 
     public static function loadMetadata(MappingClassMetadata $metadata)
     {
@@ -118,8 +122,8 @@ class ScheduledJob extends FormEntity
         $builder->createField('nextRunAt', Types::DATETIME_MUTABLE)->columnName('next_run_at')->nullable()->build();
         $builder->createField('lockedAt', Types::DATETIME_MUTABLE)->columnName('locked_at')->nullable()->build();
         $builder->createField('cronNotation', Types::TEXT)->columnName('cron_notation')->nullable()->build();
-        $builder->createField('runOnRecovery', Types::BOOLEAN)->columnName('run_on_recovery')->build();
         $builder->createField('systemCron', Types::BOOLEAN)->columnName('system_cron')->build();
+        $builder->createField('priority', Types::INTEGER)->columnName('priority')->build();
         $builder->addPublishDates();
         $builder->addCategory();
 
@@ -388,18 +392,7 @@ class ScheduledJob extends FormEntity
         $this->isChanged('systemCron', $systemCron);
         $this->systemCron = $systemCron;
     }
-
-    public function getRunOnRecovery()
-    {
-        return $this->runOnRecovery;
-    }
-
-    public function setRunOnRecovery($runOnRecovery)
-    {
-        $this->isChanged('runOnRecovery', $runOnRecovery);
-        $this->runOnRecovery = $runOnRecovery;
-    }
-
+    
     public function getLockedAt()
     {
         return $this->lockedAt;
@@ -495,5 +488,16 @@ class ScheduledJob extends FormEntity
     {
         $this->executionLogs = $executionLogs;
         return $this;
+    }
+
+    public function getPriority()
+    {
+        return $this->priority;
+    }
+
+    public function setPriority($priority)
+    {
+        $this->isChanged('priority', $priority);
+        $this->priority = $priority;
     }
 }

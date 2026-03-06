@@ -45,10 +45,9 @@ class ButtonSubscriber implements EventSubscriberInterface
             $navbarLogsButton = [
                 'attr' => [
                     'class' => 'btn btn-default btn-nospin dropdown-toggle',
-                    'style' => 'background-color:primary;position:relative;font-weight:bold;z-index:1050;',
                     'href'  => 'javascript:void(0);',
-                    'onclick' => 'Mautic.showLogs(event)',
-                    'id' => 'cronLogsBtn',
+                    'onclick' => 'Mautic.showRecentJobLogs(event)',
+                    'id' => 'recentJobLogsBtn',
                     'title' => $this->translator->trans('mautic.cron_scheduler.execution.logs'),
                     'data-toggle' => 'tooltip',
                     'data-placement' => 'bottom',
@@ -68,12 +67,12 @@ class ButtonSubscriber implements EventSubscriberInterface
                     'class'       => 'btn btn-default btn-nospin',
                     'href'        => $this->router->generate(
                         'mautic_cronscheduler_action',
-                        ['objectAction' => 'trigger', 'objectId' => $entity->getId()]
+                        ['objectAction' => 'run', 'objectId' => $entity->getId()]
                     ),
                     'data-ignore-formexit' => 'true',
                 ],
                 'iconClass' => 'fa fa-play',
-                'btnText'   => $this->translator->trans('mautic.cronscheduler.trigger'),
+                'btnText'   => $this->translator->trans('mautic.cronscheduler.run-manually'),
                 'primary'   => true,
             ];
 

@@ -1,5 +1,7 @@
 <?php
 
+use MauticPlugin\CronSchedulerBundle\Entity\ScheduledJob;
+
 if (!$isEmbedded) {
     $view->extend('MauticCoreBundle:Default:content.html.php');
     $view['slots']->set('mauticContent', 'cronscheduler');
@@ -48,6 +50,91 @@ $generateLabel = function (string $command): string {
 
     return implode(' ', array_map('ucfirst', $parts));
 };
+
+function getWeekDaysHumanReadableLabel($view, array $weekDays): string
+{
+    return implode(', ', array_map(function ($day) use ($view) {
+        switch ($day) {
+            case 1:
+                return $view['translator']->trans('mautic.report.schedule.day.monday');
+            case 2:
+                return $view['translator']->trans('mautic.report.schedule.day.tuesday');
+            case 3:
+                return $view['translator']->trans('mautic.report.schedule.day.wednesday');
+            case 4:
+                return $view['translator']->trans('mautic.report.schedule.day.thursday');
+            case 5:
+                return $view['translator']->trans('mautic.report.schedule.day.friday');
+            case 6:
+                return $view['translator']->trans('mautic.report.schedule.day.saturday');
+            case 0:
+                return $view['translator']->trans('mautic.report.schedule.day.sunday');
+            case -1:
+                return $view['translator']->trans('mautic.report.schedule.day.week_days');
+        }
+    }, $weekDays));
+}
+
+function getTriggerIntervalHumanReadableLabel($view, ScheduledJob $entity): string
+{
+
+    if ($entity->getTriggerMode() !== 'interval') {
+        return '';
+    }
+
+    $unit = $entity->getTriggerIntervalUnit();
+    $value = $entity->getTriggerInterval();
+
+    if (!$unit || !$value) {
+        return '';
+    }
+
+    $label = '';
+    $unitLabel = '';
+
+    switch ($unit) {
+        case 'i':
+            $unitLabel = $view['translator']->trans('mautic.campaign.event.intervalunit.choice.i');
+            break;
+        case 'h':
+            $unitLabel = $view['translator']->trans('mautic.campaign.event.intervalunit.choice.h');
+            break;
+        case 'd':
+            $unitLabel = $view['translator']->trans('mautic.campaign.event.intervalunit.choice.d');
+            break;
+        case 'm':
+            $unitLabel = $view['translator']->trans('mautic.campaign.event.intervalunit.choice.m');
+            break;
+        case 'y':
+            $unitLabel = $view['translator']->trans('mautic.campaign.event.intervalunit.choice.y');
+            break;
+    }
+
+    $label = $view['translator']->trans('mautic.cron_scheduler.interval.trigger.label', [
+        '%value%' => $value,
+        '%unit%' => $unitLabel,
+    ]);
+
+    if(in_array($unit, ['d', 'm', 'y'])) {
+
+        if ($entity->getTriggerHour()) {
+            $label .= ' ' . $view['translator']->trans('mautic.cron_scheduler.interval.trigger.specific.hour', [
+                '%hour%' => $entity->getTriggerHour()->format('h:i A'),
+            ]);
+        }
+
+        if ($entity->getTriggerRestrictedDaysOfWeek()) {
+            $label .= ' ' . $view['translator']->trans('mautic.cron_scheduler.interval.trigger.specific.days', [
+                '%days%' => getWeekDaysHumanReadableLabel($view, $entity->getTriggerRestrictedDaysOfWeek()),
+            ]);
+        }
+    }
+
+    return $label;
+
+}
+
+
 ?>
 <div class="page-content">
     <div class="detail-view">
@@ -60,13 +147,30 @@ $generateLabel = function (string $command): string {
                     <dt><?php echo $view['translator']->trans('mautic.cron_scheduler.form.arguments'); ?>:</dt>
                     <dd><?php echo $view->escape($entity->getArguments()); ?></dd>
 
-                    <dt><?php echo $view['translator']->trans('mautic.cron_scheduler.cron.notation'); ?>:</dt>
-                    <dd><?php echo $view->escape($entity->getCronNotation()); ?></dd>
+                    <dt><?php echo $view['translator']->trans('mautic.cron_scheduler.form.priority'); ?>:</dt>
+                    <dd><?php echo $view->escape($entity->getPriority()); ?></dd>
+
+                    <?php if ($entity->getTriggerMode() === 'cron'): ?>
+                        <dt><?php echo $view['translator']->trans('mautic.cron_scheduler.cron.notation'); ?>:</dt>
+                        <dd><?php echo $view->escape($entity->getCronNotation()); ?></dd>
+                    <?php endif; ?>
+                    <?php if ($entity->getTriggerMode() === 'interval'): ?>
+                        <dt><?php echo $view['translator']->trans('mautic.cron_scheduler.interval'); ?>:</dt>
+                        <dd>
+                            <?php echo getTriggerIntervalHumanReadableLabel($view, $entity); ?>
+                        </dd>
+                    <?php endif; ?>
+                    <?php if ($entity->getTriggerMode() === 'date'): ?>
+                        <dt><?php echo $view['translator']->trans('mautic.cronscheduler.form.type.interval_trigger_at'); ?>:</dt>
+                        <dd>
+                            <?php echo $view['date']->toFull($entity->getTriggerDate()); ?>
+                        </dd>
+                    <?php endif; ?>
 
                     <dt><?php echo $view['translator']->trans('mautic.cron_scheduler.form.lastruntime'); ?>:</dt>
                     <dd>
                         <?php if ($entity->getLastRunAt()): ?>
-                            <?php echo $entity->getLastRunAt()->format('Y-m-d H:i:s'); ?>
+                            <?php echo $view['date']->toFull($entity->getLastRunAt()); ?>
                         <?php else: ?>
                             <em><?php echo $view['translator']->trans('mautic.cron.details.never'); ?></em>
                         <?php endif; ?>
@@ -75,7 +179,7 @@ $generateLabel = function (string $command): string {
                     <dt><?php echo $view['translator']->trans('mautic.cron_scheduler.form.nextruntime'); ?>:</dt>
                     <dd>
                         <?php if ($entity->getNextRunAt()): ?>
-                            <?php echo $entity->getNextRunAt()->format('Y-m-d H:i:s'); ?>
+                            <?php echo $view['date']->toFull($entity->getNextRunAt()); ?>
                         <?php else: ?>
                             <em><?php echo $view['translator']->trans('mautic.cron.details.pending'); ?></em>
                         <?php endif; ?>
@@ -112,10 +216,10 @@ $generateLabel = function (string $command): string {
                                     <tbody>
                                         <?php foreach ($entity->getExecutionLogs()->slice(0, 50) as $log): ?>
                                             <tr>
-                                                <td><?php echo $log->getStartedAt()->format('Y-m-d H:i:s'); ?></td>
+                                                <td><?php echo $view['date']->toFull($log->getStartedAt()); ?></td>
                                                 <td>
                                                     <?php if ($log->getCompletedAt()): ?>
-                                                        <?php echo $log->getCompletedAt()->format('Y-m-d H:i:s'); ?>
+                                                        <?php echo $view['date']->toFull($log->getCompletedAt()); ?>
                                                     <?php else: ?>
                                                         <span class="label label-warning"><?php echo $view['translator']->trans('mautic.cron.logs.running'); ?></span>
                                                     <?php endif; ?>

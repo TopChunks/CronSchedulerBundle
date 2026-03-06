@@ -2,7 +2,6 @@
 
 namespace MauticPlugin\CronSchedulerBundle\Model;
 
-use Exception;
 use Mautic\CoreBundle\Model\AjaxLookupModelInterface;
 use Mautic\CoreBundle\Model\FormModel;
 use MauticPlugin\CronSchedulerBundle\Entity\JobExecutionLog;
@@ -10,6 +9,7 @@ use MauticPlugin\CronSchedulerBundle\Entity\ScheduledJob;
 use MauticPlugin\CronSchedulerBundle\Form\Type\CronSchedulerType;
 use MauticPlugin\CronSchedulerBundle\Service\SchedulerService;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
+use Mautic\CoreBundle\Helper\DateTimeHelper;
 
 class CronSchedulerModel extends FormModel implements AjaxLookupModelInterface
 {
@@ -63,68 +63,25 @@ class CronSchedulerModel extends FormModel implements AjaxLookupModelInterface
 
     public function saveEntity($entity, $unlock = true)
     {
-        $this->convertToUTC($entity);
-
-        if (!$entity->getId()) {
-            $this->setInitialNextRunAt($entity);
-        } else {
-            if ($this->hasTriggerSettingsChanged($entity)) {
-                $now = new \DateTime('now', new \DateTimeZone('UTC'));
-                $nextRunAt = $this->schedulerService->calculateNextRunTime($entity, $now);
-                $entity->setNextRunAt($nextRunAt);
-            }
+        if (!$entity->getId() || $this->hasTriggerSettingsChanged($entity)) {
+            $this->setNextRunAtIfChanged($entity);
         }
 
         return parent::saveEntity($entity, $unlock);
     }
 
-    private function convertToUTC(ScheduledJob $entity)
+    private function setNextRunAtIfChanged(ScheduledJob $entity)
     {
-        if ($entity->getPublishUp()) {
-            $publishUp = $entity->getPublishUp();
-            if ($publishUp->getTimezone()->getName() !== 'UTC') {
-                $utcDate = clone $publishUp;
-                $utcDate->setTimezone(new \DateTimeZone('UTC'));
-                $entity->setPublishUp($utcDate);
-            }
+        $dateTimeHelper = new DateTimeHelper();
+        $publishUp = $entity->getPublishUp();
+
+        if($publishUp && $publishUp >= $dateTimeHelper->getLocalDateTime()) {
+            $nextRunAt = $this->schedulerService->calculateNextRunTime($entity, $publishUp);
+        }else{
+            $nextRunAt = $this->schedulerService->calculateNextRunTime($entity);
         }
-
-        if ($entity->getPublishDown()) {
-            $publishDown = $entity->getPublishDown();
-            if ($publishDown->getTimezone()->getName() !== 'UTC') {
-                $utcDate = clone $publishDown;
-                $utcDate->setTimezone(new \DateTimeZone('UTC'));
-                $entity->setPublishDown($utcDate);
-            }
-        }
-
-        if ($entity->getTriggerDate()) {
-            $triggerDate = $entity->getTriggerDate();
-            if ($triggerDate->getTimezone()->getName() !== 'UTC') {
-                $utcDate = clone $triggerDate;
-                $utcDate->setTimezone(new \DateTimeZone('UTC'));
-                $entity->setTriggerDate($utcDate);
-            }
-        }
-    }
-
-    private function setInitialNextRunAt(ScheduledJob $entity)
-    {
-        $now = new \DateTime('now', new \DateTimeZone('UTC'));
-
-        switch ($entity->getTriggerMode()) {
-            case 'date':
-                if ($entity->getTriggerDate()) {
-                    $entity->setNextRunAt($entity->getTriggerDate());
-                }
-                break;
-
-            case 'interval':
-            case 'cron':
-                $nextRunAt = $this->schedulerService->calculateNextRunTime($entity, $now);
-                $entity->setNextRunAt($nextRunAt);
-                break;
-        }
+        
+        $entity->setNextRunAt($nextRunAt);
     }
 
     private function hasTriggerSettingsChanged(ScheduledJob $entity): bool
@@ -139,10 +96,44 @@ class CronSchedulerModel extends FormModel implements AjaxLookupModelInterface
             'triggerHour',
             'triggerRestrictedDaysOfWeek',
             'cronNotation',
+            'publishUp',
         ];
 
         foreach ($triggerFields as $field) {
             if (isset($changes[$field])) {
+
+                //Special case for triggerInterval
+                if($field == 'triggerInterval'){
+                    $oldValue = $changes[$field][0];
+                    $newValue = $changes[$field][1];
+                    if($oldValue != $newValue) {
+                        return true;
+                    }
+
+                    //Special case for triggerHour
+                }elseif($field == 'triggerHour'){
+                    $oldValue = $changes[$field][0];
+                    $newValue = $changes[$field][1];
+
+                    if(empty($oldValue) && !empty($newValue)) {
+                        return true;
+                    }
+                    if(!empty($oldValue) && empty($newValue)) {
+                        return true;
+                    }
+
+                    if(empty($oldValue) && empty($newValue)) {
+                        return false;
+                    }
+
+                    $oldDateTime = new \DateTime($oldValue);
+                    $newDateTime = new \DateTime('1970-01-01 '.$newValue);
+
+                    if($oldDateTime->format('H:i:s') != $newDateTime->format('H:i:s')) {
+                        return true;
+                    }
+                }
+
                 return true;
             }
         }
