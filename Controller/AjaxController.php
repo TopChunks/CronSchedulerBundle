@@ -11,29 +11,33 @@ class AjaxController extends CommonAjaxController
     use AjaxLookupControllerTrait;
 
     /**
-     * AJAX endpoint for dropdown logs
+     * AJAX endpoint for dropdown logs.
      */
-    protected function logsAction()
+    public function logsAction(): JsonResponse
     {
-        if (!$this->get('mautic.security')->isGranted('cronscheduler:cronscheduler:viewown')) {
+        $permissions = $this->security->isGranted(
+            [
+                'cronscheduler:cronscheduler:viewown',
+                'cronscheduler:cronscheduler:viewother',
+            ],
+            'RETURN_ARRAY'
+        );
+
+        if (empty($permissions['cronscheduler:cronscheduler:viewown']) && empty($permissions['cronscheduler:cronscheduler:viewother'])) {
             return new JsonResponse(['error' => 'Access denied'], 403);
         }
 
-        /** @var \MauticPlugin\CronSchedulerBundle\Model\CronSchedulerModel $model */
         $model = $this->getModel('cronscheduler');
-        $logs = $model->getLogsRepository()->getLatestLogs();
+        $logs  = $model->getLogsRepository()->getLatestLogs();
 
-        $html = $this->renderView(
-            'CronSchedulerBundle:CronScheduler:logs.html.php',
-            [
-                'logs' => $logs,
-                'tmpl' => 'dropdown',
-            ]
-        );
+        $html = $this->renderView('@CronScheduler/CronScheduler/logs.html.twig', [
+            'logs' => $logs,
+            'tmpl' => 'dropdown',
+        ]);
 
-        return new JsonResponse([
-            'success' => true,
-            'html' => $html
+        return $this->sendJsonResponse([
+            'success' => 1,
+            'html'    => $html,
         ]);
     }
 }

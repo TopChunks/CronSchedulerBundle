@@ -1,0 +1,302 @@
+{% if not isEmbedded %}
+    {% extends '@MauticCore/Default/content.html.twig' %}
+{% endif %}
+
+{% block mauticContent %}cronscheduler{% endblock %}
+{% block headerTitle %}{{ entity.getName() }}{% endblock %}
+
+{% block indexButton %}
+    {{- include('@MauticCore/Helper/page_actions.html.twig', {
+        item: entity,
+        templateButtons: {
+            close: securityHasEntityAccess(
+                permissions['cronscheduler:cronscheduler:viewown'],
+                permissions['cronscheduler:cronscheduler:viewother'],
+                entity.getCreatedBy()
+            )
+        },
+        routeBase: 'cronscheduler',
+        targetLabel: 'mautic.cronscheduler.scheduled.jobs'|trans
+    }) -}}
+{% endblock %}
+
+{% block actions %}
+    {{- include('@MauticCore/Helper/page_actions.html.twig', {
+        item: entity,
+        templateButtons: {
+            edit: securityHasEntityAccess(
+                permissions['cronscheduler:cronscheduler:editown'],
+                permissions['cronscheduler:cronscheduler:editother'],
+                entity.getCreatedBy()
+            ),
+            clone: permissions['cronscheduler:cronscheduler:create'],
+            delete: securityHasEntityAccess(
+                permissions['cronscheduler:cronscheduler:deleteown'],
+                permissions['cronscheduler:cronscheduler:deleteother'],
+                entity.getCreatedBy()
+            )
+        },
+        routeBase: 'cronscheduler'
+    }) -}}
+{% endblock %}
+
+{% block publishStatus %}
+    {{- include('@MauticCore/Helper/publishstatus_badge.html.twig', {'entity': entity}) -}}
+{% endblock %}
+
+{% block content %}
+    {% macro interval_label(entity) %}
+        {# Build a human-readable interval label; return empty string when not applicable #}
+        {% set label = '' %}
+
+        {% if entity.getTriggerMode() == 'interval' %}
+            {% set unit = entity.getTriggerIntervalUnit() %}
+            {% set value = entity.getTriggerInterval() %}
+
+            {% if unit is not empty and value is not empty %}
+                {% set unitLabel = '' %}
+                {% if unit == 'i' %}
+                    {% set unitLabel = 'mautic.campaign.event.intervalunit.choice.i'|trans %}
+                {% elseif unit == 'h' %}
+                    {% set unitLabel = 'mautic.campaign.event.intervalunit.choice.h'|trans %}
+                {% elseif unit == 'd' %}
+                    {% set unitLabel = 'mautic.campaign.event.intervalunit.choice.d'|trans %}
+                {% elseif unit == 'm' %}
+                    {% set unitLabel = 'mautic.campaign.event.intervalunit.choice.m'|trans %}
+                {% elseif unit == 'y' %}
+                    {% set unitLabel = 'mautic.campaign.event.intervalunit.choice.y'|trans %}
+                {% endif %}
+
+                {% set label = 'mautic.cron_scheduler.interval.trigger.label'|trans({
+                    '%value%': value,
+                    '%unit%': unitLabel
+                }) %}
+
+                {% if unit in ['d', 'm', 'y'] %}
+                    {% if entity.getTriggerHour() %}
+                        {% set label = label ~ ' ' ~ 'mautic.cron_scheduler.interval.trigger.specific.hour'|trans({
+                            '%hour%': entity.getTriggerHour()|date('h:i A')
+                        }) %}
+                    {% endif %}
+
+                    {% if entity.getTriggerRestrictedDaysOfWeek() %}
+                        {% set days = [] %}
+                        {% for day in entity.getTriggerRestrictedDaysOfWeek() %}
+                            {% set dayLabel = '' %}
+                            {% if day == 1 %}
+                                {% set dayLabel = 'mautic.report.schedule.day.monday'|trans %}
+                            {% elseif day == 2 %}
+                                {% set dayLabel = 'mautic.report.schedule.day.tuesday'|trans %}
+                            {% elseif day == 3 %}
+                                {% set dayLabel = 'mautic.report.schedule.day.wednesday'|trans %}
+                            {% elseif day == 4 %}
+                                {% set dayLabel = 'mautic.report.schedule.day.thursday'|trans %}
+                            {% elseif day == 5 %}
+                                {% set dayLabel = 'mautic.report.schedule.day.friday'|trans %}
+                            {% elseif day == 6 %}
+                                {% set dayLabel = 'mautic.report.schedule.day.saturday'|trans %}
+                            {% elseif day == 0 %}
+                                {% set dayLabel = 'mautic.report.schedule.day.sunday'|trans %}
+                            {% elseif day == -1 %}
+                                {% set dayLabel = 'mautic.report.schedule.day.week_days'|trans %}
+                            {% endif %}
+                            {% if dayLabel %}
+                                {% set days = days|merge([dayLabel]) %}
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if days is not empty %}
+                            {% set label = label ~ ' ' ~ 'mautic.cron_scheduler.interval.trigger.specific.days'|trans({
+                                '%days%': days|join(', ')
+                            }) %}
+                        {% endif %}
+                    {% endif %}
+                {% endif %}
+            {% endif %}
+        {% endif %}
+
+        {{ label }}
+    {% endmacro %}
+
+    <div class="page-content">
+        <div class="detail-view">
+            <div class="col-md-12 np">
+                <div class="bg-white pa-15 shadow-card">
+                    <dl class="dl-horizontal">
+                        <dt>{{ 'mautic.cron_scheduler.form.command'|trans }}:</dt>
+                        <dd>
+                            {% set commandParts = entity.getCommand()|split(':') %}
+                            {% set labelParts = [] %}
+                            {% for part in commandParts %}
+                                {% if not loop.first %}
+                                    {% set labelParts = labelParts|merge([part|capitalize]) %}
+                                {% endif %}
+                            {% endfor %}
+                            {{ labelParts is not empty ? labelParts|join(' ') : entity.getCommand() }}
+                        </dd>
+
+                        <dt>{{ 'mautic.cron_scheduler.form.arguments'|trans }}:</dt>
+                        <dd>{{ entity.getArguments() }}</dd>
+
+                        <dt>{{ 'mautic.cron_scheduler.form.priority'|trans }}:</dt>
+                        <dd>{{ entity.getPriority() }}</dd>
+
+                        {% if entity.getTriggerMode() == 'cron' %}
+                            <dt>{{ 'mautic.cron_scheduler.cron.notation'|trans }}:</dt>
+                            <dd>{{ entity.getCronNotation() }}</dd>
+                        {% endif %}
+
+                        {% if entity.getTriggerMode() == 'interval' %}
+                            <dt>{{ 'mautic.cron_scheduler.interval'|trans }}:</dt>
+                            <dd>{{ _self.interval_label(entity) }}</dd>
+                        {% endif %}
+
+                        {% if entity.getTriggerMode() == 'date' %}
+                            <dt>{{ 'mautic.cronscheduler.form.type.interval_trigger_at'|trans }}:</dt>
+                            <dd>
+                                {% if entity.getTriggerDate() %}
+                                    {{ entity.getTriggerDate()|date('Y-m-d H:i:s') }}
+                                {% endif %}
+                            </dd>
+                        {% endif %}
+
+                        <dt>{{ 'mautic.cron_scheduler.form.lastruntime'|trans }}:</dt>
+                        <dd>
+                            {% if entity.getLastRunAt() %}
+                                {{ entity.getLastRunAt()|date('Y-m-d H:i:s') }}
+                            {% else %}
+                                <em>{{ 'mautic.cron.details.never'|trans }}</em>
+                            {% endif %}
+                        </dd>
+
+                        <dt>{{ 'mautic.cron_scheduler.form.nextruntime'|trans }}:</dt>
+                        <dd>
+                            {% if entity.getNextRunAt() %}
+                                {{ entity.getNextRunAt()|date('Y-m-d H:i:s') }}
+                            {% else %}
+                                <em>{{ 'mautic.cron.details.pending'|trans }}</em>
+                            {% endif %}
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if entity.getExecutionLogs() and entity.getExecutionLogs()|length > 0 %}
+        <div class="page-content">
+            <div class="detail-view">
+                <div class="col-md-12 np">
+                    <div class="bg-white pa-15 shadow-card mb-15">
+                        <div class="panel panel-default mb-0">
+                            <div class="panel-heading">
+                                <h4 class="panel-title mb-0">
+                                    {{ 'mautic.cron_scheduler.execution.logs'|trans }}
+                                </h4>
+                            </div>
+                            <div class="panel-body">
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-bordered mb-0">
+                                        <thead>
+                                        <tr>
+                                            <th>{{ 'mautic.cron.logs.starttime'|trans }}</th>
+                                            <th>{{ 'mautic.cron.logs.endtime'|trans }}</th>
+                                            <th>{{ 'mautic.cron.logs.duration'|trans }}</th>
+                                            <th>{{ 'mautic.cron.logs.status'|trans }}</th>
+                                            <th>{{ 'mautic.cron.logs.details'|trans }}</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        {% for log in entity.getExecutionLogs().slice(0, 50) %}
+                                            <tr>
+                                                <td>{{ log.getStartedAt() ? log.getStartedAt()|date('Y-m-d H:i:s') : '' }}</td>
+                                                <td>
+                                                    {% if log.getCompletedAt() %}
+                                                        {{ log.getCompletedAt()|date('Y-m-d H:i:s') }}
+                                                    {% else %}
+                                                        <span class="label label-warning">
+                                                            {{ 'mautic.cron.logs.running'|trans }}
+                                                        </span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    {% if log.getDuration() %}
+                                                        {{ log.getDuration()|number_format(2, '.', '') }}s
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    {% if log.isSuccess() is same as(true) %}
+                                                        <span class="label label-success">
+                                                            {{ 'mautic.cron.logs.success'|trans }}
+                                                        </span>
+                                                    {% elseif log.isSuccess() is same as(false) %}
+                                                        <span class="label label-danger">
+                                                            {{ 'mautic.cron.logs.error'|trans }}
+                                                        </span>
+                                                    {% else %}
+                                                        <span class="label label-default">-</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    <button type="button"
+                                                            class="btn btn-xs btn-primary"
+                                                            data-toggle="modal"
+                                                            data-target="#outputModal{{ log.getId() }}">
+                                                        {{ 'mautic.core.details'|trans }}
+                                                    </button>
+
+                                                    <div class="modal fade"
+                                                         id="outputModal{{ log.getId() }}"
+                                                         tabindex="-1"
+                                                         role="dialog">
+                                                        <div class="modal-dialog modal-lg">
+                                                            <div class="modal-content">
+                                                                <div class="modal-header">
+                                                                    <h5 class="modal-title">
+                                                                        {{ 'mautic.cron.logs.details'|trans }}
+                                                                    </h5>
+                                                                    <button type="button"
+                                                                            class="close"
+                                                                            data-dismiss="modal"
+                                                                            style="margin-top: -20px;">
+                                                                        <span>&times;</span>
+                                                                    </button>
+                                                                </div>
+                                                                <div class="modal-body">
+                                                                    {% if log.getErrorMessage() %}
+                                                                        <h6>{{ 'mautic.cron.logs.error'|trans }}:</h6>
+                                                                        <pre class="bg-danger"
+                                                                             style="padding: 10px; border-radius: 4px;">{{ log.getErrorMessage() }}</pre>
+                                                                    {% endif %}
+                                                                    {% if log.getOutput() %}
+                                                                        <h6>{{ 'mautic.cron.logs.commandoutput'|trans }}:</h6>
+                                                                        <br>
+                                                                        <pre class="bg-light"
+                                                                             style="padding: 10px; border-radius: 4px; max-height: 400px; overflow-y: auto;">{{ log.getOutput() }}</pre>
+                                                                    {% endif %}
+                                                                </div>
+                                                                <div class="modal-footer">
+                                                                    <button type="button"
+                                                                            class="btn btn-primary"
+                                                                            data-dismiss="modal">
+                                                                        {{ 'mautic.core.close'|trans }}
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+{% endblock %}
+

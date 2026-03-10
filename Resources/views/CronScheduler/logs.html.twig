@@ -1,0 +1,53 @@
+{% if logs is not empty %}
+    <div style="max-height: 210px; overflow-y: auto; overflow-x: hidden;">
+        <ul class="list-unstyled mb-0" style="margin: 0; padding: 0;">
+            {% for log in logs %}
+                {% set job = log.getScheduledJob() %}
+                {% if job is not null %}
+                {% set url = path('mautic_cronscheduler_action', {'objectAction': 'view', 'objectId': job.getId()}) %}
+                {% set statusClass = log.isSuccess() ? 'text-success' : 'text-danger' %}
+
+                {% set fullName = job.getName() ?? '' %}
+                {% set displayName = fullName %}
+                {% set maxLen = 30 %}
+
+                {% if fullName is not empty and fullName|length > maxLen %}
+                    {% set displayName = fullName|slice(0, maxLen - 1) ~ '…' %}
+                {% endif %}
+
+                <li class="pt-sm pb-sm pr-md pl-md bdr-b">
+                    <a href="{{ url }}" data-toggle="ajax" class="text-muted" style="display: block; text-decoration: none;">
+                        <div>
+                            <span title="{{ fullName }}">
+                                <strong>{{ displayName }}</strong>
+                            </span>
+                            <span class="pull-right {{ statusClass }}">
+                                <i class="fa fa-eye"></i>
+                            </span>
+                        </div>
+
+                        <div class="mt-xs">
+                            <small class="text-muted">
+                                {{ log.getStartedAt() ? log.getStartedAt()|date('Y-m-d H:i:s') : '' }}
+                            </small>
+                        </div>
+                    </a>
+                </li>
+                {% endif %}
+            {% endfor %}
+        </ul>
+    </div>
+
+    <div class="text-center pt-15 bdr-t">
+        <a href="{{ path('mautic_cronscheduler_index', {'page': 1}) }}" data-toggle="ajax">
+            {{ 'mautic.cron.logs.viewall'|trans }}
+        </a>
+    </div>
+{% else %}
+    <div style="height: 210px; display: flex; align-items: center; justify-content: center;">
+        <div class="text-center p-10 text-muted">
+            {{ 'mautic.cron.logs.empty'|trans }}
+        </div>
+    </div>
+{% endif %}
+

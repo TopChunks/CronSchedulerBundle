@@ -9,23 +9,20 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 class ConfigSubscriber implements EventSubscriberInterface
 {
-    /**
-     * @return array
-     */
-    public static function getSubscribedEvents()
+    public static function getSubscribedEvents(): array
     {
         return [
             ConfigEvents::CONFIG_ON_GENERATE => ['onConfigGenerate', 0],
         ];
     }
 
-    public function onConfigGenerate(ConfigBuilderEvent $event)
+    public function onConfigGenerate(ConfigBuilderEvent $event): void
     {
         $event->addForm([
             'bundle' => 'CronSchedulerBundle',
             'formAlias' => 'cronschedulerconfig',
             'formType' => ConfigType::class,
-            'formTheme' => 'CronSchedulerBundle:FormTheme\Config',
+            'formTheme' => '@CronScheduler/FormTheme/Config/_config_cronschedulerconfig_widget.html.twig',
             'parameters' => $event->getParametersFromConfig('CronSchedulerBundle')
         ]);
     }

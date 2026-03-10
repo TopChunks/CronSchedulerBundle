@@ -5,10 +5,44 @@ namespace MauticPlugin\CronSchedulerBundle\Controller;
 use Mautic\CoreBundle\Controller\AbstractStandardFormController;
 use Mautic\CoreBundle\Form\Type\DateRangeType;
 use MauticPlugin\CronSchedulerBundle\Entity\ScheduledJob;
+use MauticPlugin\CronSchedulerBundle\Service\SchedulerService;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Form\FormFactoryInterface;
+use Doctrine\Persistence\ManagerRegistry;
+use Mautic\CoreBundle\Factory\MauticFactory;
+use Mautic\CoreBundle\Factory\ModelFactory;
+use Mautic\CoreBundle\Helper\UserHelper;
+use Mautic\CoreBundle\Helper\CoreParametersHelper;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Mautic\CoreBundle\Translation\Translator;
+use Mautic\CoreBundle\Service\FlashBag;
+use Symfony\Component\HttpFoundation\RequestStack;
+use Mautic\CoreBundle\Security\Permissions\CorePermissions;
+use Mautic\FormBundle\Helper\FormFieldHelper;
 
 class CronSchedulerController extends AbstractStandardFormController
 {
+    private SchedulerService $schedulerService;
+
+    public function __construct(
+        FormFactoryInterface $formFactory,
+        FormFieldHelper $fieldHelper,
+        ManagerRegistry $managerRegistry,
+        MauticFactory $factory,
+        ModelFactory $modelFactory,
+        UserHelper $userHelper,
+        CoreParametersHelper $coreParametersHelper,
+        EventDispatcherInterface $dispatcher,
+        Translator $translator,
+        FlashBag $flashBag,
+        RequestStack $requestStack,
+        CorePermissions $security,
+        SchedulerService $schedulerService
+    ) {
+        parent::__construct($formFactory, $fieldHelper, $managerRegistry, $factory, $modelFactory, $userHelper, $coreParametersHelper, $dispatcher, $translator, $flashBag, $requestStack, $security);
+        $this->schedulerService = $schedulerService;
+    }
     /**
      * @param int $page
      *
@@ -16,7 +50,7 @@ class CronSchedulerController extends AbstractStandardFormController
      */
     public function indexAction($page = 1)
     {
-        $permissions = $this->get('mautic.security')->isGranted(
+        $permissions = $this->security->isGranted(
             [
                 'cronscheduler:cronscheduler:viewown',
                 'cronscheduler:cronscheduler:viewother',
@@ -54,8 +88,8 @@ class CronSchedulerController extends AbstractStandardFormController
             $start = 0;
         }
 
-        $search = $this->request->get('search', $session->get('mautic.' . $this->getSessionBase() . '.filter', ''));
-        $session->set('mautic.' . $this->getSessionBase() . '.filter', $search);
+        $search = $this->getCurrentRequest()->get('search', $session->get('mautic.' . $this->getSessionBase() . '.filter', ''));
+        $this->getCurrentRequest()->getSession()->set('mautic.' . $this->getSessionBase() . '.filter', $search);
 
         $filter = ['string' => $search, 'force' => []];
 
@@ -95,7 +129,7 @@ class CronSchedulerController extends AbstractStandardFormController
                     [
                         'returnUrl'       => $returnUrl,
                         'viewParameters'  => ['page' => $lastPage],
-                        'contentTemplate' => $this->getControllerBase() . ':' . $this->getPostActionControllerAction('index'),
+                        'contentTemplate' => $this->getControllerBase() . '::' . $this->getPostActionControllerAction('index') . 'Action',
                         'passthroughVars' => [
                             'mauticContent' => $this->getJsLoadMethodPrefix(),
                         ],
@@ -122,24 +156,19 @@ class CronSchedulerController extends AbstractStandardFormController
             'page'         => $page,
             'limit'        => $limit,
             'permissions'  => $permissions,
-            'tmpl'         => $this->request->get('tmpl', 'index'),
+            'tmpl'         => $this->getCurrentRequest()->get('tmpl', 'index'),
         ];
 
         return $this->delegateView(
             $this->getViewArguments([
                 'viewParameters' => $viewParameters,
-                'contentTemplate' => $this->getTemplateName('CronScheduler:list.html.php'),
+                'contentTemplate' => '@CronScheduler/CronScheduler/list.html.twig',
                 'passthroughVars' => [
                     'activeLink'    => $this->getJsLoadMethodPrefix(),
                     'route'         => $this->generateUrl($this->getIndexRoute(), ['page' => $page]),
                 ],
             ], 'index')
         );
-    }
-
-    public function getTemplateName($file)
-    {
-        return 'CronSchedulerBundle:' . $file;
     }
 
     /**
@@ -160,10 +189,10 @@ class CronSchedulerController extends AbstractStandardFormController
             $entity = $model->getEntity();
         }
 
-        $method = $this->request->getMethod();
-        $session = $this->get('session');
+        $method = $this->getCurrentRequest()->getMethod();
+        $session = $this->getCurrentRequest()->getSession();
 
-        if (!$this->get('mautic.security')->isGranted('cronscheduler:cronscheduler:create')) {
+        if (!$this->security->isGranted('cronscheduler:cronscheduler:create')) {
             return $this->accessDenied();
         }
 
@@ -178,7 +207,7 @@ class CronSchedulerController extends AbstractStandardFormController
                 if ($valid = $this->isFormValid($form)) {
                     if ($valid) {
                         $model->saveEntity($entity);
-                        $this->addFlash(
+                        $this->addFlashMessage(
                             'mautic.core.notice.created',
                             [
                                 '%name%' => $entity->getName(),
@@ -194,7 +223,7 @@ class CronSchedulerController extends AbstractStandardFormController
                 return $this->postActionRedirect([
                     'returnUrl'       => $this->generateUrl('mautic_cronscheduler_index', ['page' => $page]),
                     'viewParameters'  => ['page' => $page],
-                    'contentTemplate' => 'CronSchedulerBundle:CronScheduler:index',
+                    'contentTemplate' => CronSchedulerController::class . '::indexAction',
                     'passthroughVars' => [
                         'activeLink'    => '#mautic_cronscheduler_index',
                         'mauticContent' => 'cronscheduler',
@@ -212,7 +241,7 @@ class CronSchedulerController extends AbstractStandardFormController
                         'objectAction' => 'view',
                         'objectId'     => $entity->getId(),
                     ],
-                    'contentTemplate' => 'CronSchedulerBundle:CronScheduler:view',
+                    'contentTemplate' => CronSchedulerController::class . '::viewAction',
                     'passthroughVars' => [
                         'activeLink'    => '#mautic_cronscheduler_index',
                         'mauticContent' => 'cronscheduler',
@@ -224,11 +253,11 @@ class CronSchedulerController extends AbstractStandardFormController
         return $this->delegateView(
             [
                 'viewParameters' => [
-                    'form'       => $this->setFormTheme($form, 'CronSchedulerBundle:CronScheduler:form.html.php'),
+                    'form'       => $form->createView(),
                     'entity'     => $entity,
-                    'tmpl'       => $this->request->isXmlHttpRequest() ? $this->request->get('tmpl', 'index') : 'index',
+                    'tmpl'       => $this->getCurrentRequest()->isXmlHttpRequest() ? $this->getCurrentRequest()->get('tmpl', 'index') : 'index',
                 ],
-                'contentTemplate' => 'CronSchedulerBundle:CronScheduler:form.html.php',
+                'contentTemplate' => '@CronScheduler/CronScheduler/form.html.twig',
                 'passthroughVars' => [
                     'activeLink'    => '#mautic_cronscheduler_index',
                     'mauticContent' => 'cronscheduler',
@@ -242,7 +271,7 @@ class CronSchedulerController extends AbstractStandardFormController
     {
         /** @var \MauticPlugin\CronSchedulerBundle\Model\CronSchedulerModel $model */
         $model = $this->getModel('cronscheduler');
-        $method = $this->request->getMethod();
+        $method = $this->getCurrentRequest()->getMethod();
         /** @var ?\MauticPlugin\CronSchedulerBundle\Entity\ScheduledJob $entity */
         $entity = $model->getEntity($objectId);
 
@@ -258,7 +287,7 @@ class CronSchedulerController extends AbstractStandardFormController
         $postActionVars = [
             'returnUrl'       => $returnUrl,
             'viewParameters'  => ['page' => $page],
-            'contentTemplate' => 'CronSchedulerBundle:CronScheduler:index',
+            'contentTemplate' => 'MauticPlugin\CronSchedulerBundle\Controller\CronSchedulerController::indexAction',
             'passthroughVars' => [
                 'activeLink'    => '#mautic_cronscheduler_index',
                 'mauticContent' => 'cronscheduler',
@@ -280,7 +309,7 @@ class CronSchedulerController extends AbstractStandardFormController
                     ]
                 )
             );
-        } elseif (!$this->get('mautic.security')->hasEntityAccess(
+        } elseif (!$this->security->hasEntityAccess(
             'cronscheduler:cronscheduler:editown',
             'cronscheduler:cronscheduler:editother',
             $entity->getCreatedBy()
@@ -296,14 +325,13 @@ class CronSchedulerController extends AbstractStandardFormController
             if (!$cancelled = $this->isFormCancelled($form)) {
                 if ($valid = $this->isFormValid($form)) {
                     $model->saveEntity($entity, $form->get('buttons')->get('save')->isClicked());
-                    $this->addFlash(
+                    $this->addFlashMessage(
                         'mautic.core.notice.updated',
                         [
                             '%name%' => $entity->getName(),
                             '%menu_link%' => $this->generateUrl('mautic_cronscheduler_index'),
                             '%url%' => $this->generateUrl('mautic_cronscheduler_action', ['objectAction' => 'edit', 'objectId' => $entity->getId()]),
                         ],
-                        'warning'
                     );
                 }
             } else {
@@ -327,7 +355,7 @@ class CronSchedulerController extends AbstractStandardFormController
                         'returnUrl'    => $this->generateUrl('mautic_cronscheduler_action', $viewParameters),
                         'viewParameters'  => $viewParameters,
                         'passthroughVars'  => $passthrough,
-                        'contentTemplate' => 'CronSchedulerBundle:CronScheduler:view',
+                        'contentTemplate' => CronSchedulerController::class . '::viewAction',
                     ]
                 );
             }
@@ -337,12 +365,12 @@ class CronSchedulerController extends AbstractStandardFormController
         return $this->delegateView(
             [
                 'viewParameters' => [
-                    'form'       => $this->setFormTheme($form, 'CronSchedulerBundle:CronScheduler:form.html.php'),
+                    'form'       => $form->createView(),
                     'entity'     => $entity,
                     'forceTypeSelection' => $forceTypeSelection,
-                    'tmpl'       => $this->request->isXmlHttpRequest() ? $this->request->get('tmpl', 'index') : 'index',
+                    'tmpl'       => $this->getCurrentRequest()->isXmlHttpRequest() ? $this->getCurrentRequest()->get('tmpl', 'index') : 'index',
                 ],
-                'contentTemplate' => 'CronSchedulerBundle:CronScheduler:form.html.php',
+                'contentTemplate' => '@CronScheduler/CronScheduler/form.html.twig',
                 'passthroughVars' => [
                     'activeLink'    => '#mautic_cronscheduler_index',
                     'mauticContent' => 'cronscheduler',
@@ -357,8 +385,6 @@ class CronSchedulerController extends AbstractStandardFormController
         /** @var \MauticPlugin\CronSchedulerBundle\Model\CronSchedulerModel $model */
         $model = $this->getModel('cronscheduler');
 
-        $security = $this->get('mautic.security');
-
         /** @var ?\MauticPlugin\CronSchedulerBundle\Entity\ScheduledJob $entity */
         $entity = $model->getEntity($objectId);
 
@@ -372,7 +398,7 @@ class CronSchedulerController extends AbstractStandardFormController
             $returnUrl = $this->generateUrl('mautic_cronscheduler_index', ['page' => $page]);
             return $this->postActionRedirect([
                 'returnUrl'    => $returnUrl,
-                'contentTemplate' => 'CronSchedulerBundle:CronScheduler:index',
+                'contentTemplate' => 'MauticPlugin\CronSchedulerBundle\Controller\CronSchedulerController::indexAction',
                 'passthrough'  => [
                     'activeLink' => '#mautic_cronscheduler_index',
                     'mauticContent' => 'cronscheduler',
@@ -385,7 +411,7 @@ class CronSchedulerController extends AbstractStandardFormController
                     ]
                 ]
             ]);
-        } elseif (!$security->hasEntityAccess(
+        } elseif (!$this->security->hasEntityAccess(
             'cronscheduler:cronscheduler:viewown',
             'cronscheduler:cronscheduler:viewother',
             $entity->getCreatedBy()
@@ -393,7 +419,7 @@ class CronSchedulerController extends AbstractStandardFormController
             return $this->accessDenied();
         }
 
-        $dateRangeValues = $this->request->get('dateRange', null);
+        $dateRangeValues = $this->getCurrentRequest()->get('dateRange', null);
         $action = $this->generateUrl('mautic_cronscheduler_action', ['objectAction' => 'view', 'objectId' => $objectId]);
         $dateRangeFrom = $this->get('form.factory')->create(DateRangeType::class, $dateRangeValues, ['action' => $action]);
         return $this->delegateView(
@@ -401,9 +427,9 @@ class CronSchedulerController extends AbstractStandardFormController
                 'viewParameters' => [
                     'entity'       => $entity,
                     'dateRangeForm' => $dateRangeFrom->createView(),
-                    'tmpl'         => $this->request->isXmlHttpRequest() ? $this->request->get('tmpl', 'index') : 'index',
-                    'isEmbedded'      => $this->request->get('isEmbedded') ? $this->request->get('isEmbedded') : false,
-                    'permissions'     => $security->isGranted([
+                    'tmpl'         => $this->getCurrentRequest()->isXmlHttpRequest() ? $this->getCurrentRequest()->get('tmpl', 'index') : 'index',
+                    'isEmbedded'      => $this->getCurrentRequest()->get('isEmbedded') ? $this->getCurrentRequest()->get('isEmbedded') : false,
+                    'permissions'     => $this->security->isGranted([
                         'cronscheduler:cronscheduler:viewown',
                         'cronscheduler:cronscheduler:viewother',
                         'cronscheduler:cronscheduler:create',
@@ -415,7 +441,7 @@ class CronSchedulerController extends AbstractStandardFormController
                         'cronscheduler:cronscheduler:publishother',
                     ], 'RETURN_ARRAY'),
                 ],
-                'contentTemplate' => 'CronSchedulerBundle:CronScheduler:details.html.php',
+                'contentTemplate' => '@CronScheduler/CronScheduler/details.html.twig',
                 'passthroughVars' => [
                     'activeLink'    => '#mautic_cronscheduler_index',
                     'mauticContent' => 'cronscheduler',
@@ -426,21 +452,21 @@ class CronSchedulerController extends AbstractStandardFormController
 
     public function deleteAction($objectId)
     {
-        $page = $this->get('session')->get('mautic.cronscheduler.page', 1);
+        $page = $this->getCurrentRequest()->getSession()->get('mautic.cronscheduler.page', 1);
         $returnUrl = $this->generateUrl('mautic_cronscheduler_index', ['page' => $page]);
         $flashes = [];
 
         $postActionVars = [
             'returnUrl'       => $returnUrl,
             'viewParameters'  => ['page' => $page],
-            'contentTemplate' => 'CronSchedulerBundle:CronScheduler:index',
+            'contentTemplate' => CronSchedulerController::class . '::indexAction',
             'passthroughVars' => [
                 'activeLink'    => '#mautic_cronscheduler_index',
                 'mauticContent' => 'cronscheduler',
             ],
         ];
 
-        if ('POST' === $this->request->getMethod()) {
+        if ('POST' === $this->getCurrentRequest()->getMethod()) {
             /** @var \MauticPlugin\CronSchedulerBundle\Model\CronSchedulerModel $model */
             $model = $this->getModel('cronscheduler');
             /** @var ?\MauticPlugin\CronSchedulerBundle\Entity\ScheduledJob $entity */
@@ -456,7 +482,7 @@ class CronSchedulerController extends AbstractStandardFormController
                     'msg'  => 'mautic.cronscheduler.error.notfound',
                     'msgVars' => ['%id%' => $objectId],
                 ];
-            } elseif (!$this->get('mautic.security')->hasEntityAccess(
+            } elseif (!$this->security->hasEntityAccess(
                 'cronscheduler:cronscheduler:deleteown',
                 'cronscheduler:cronscheduler:deleteother',
                 $entity->getCreatedBy()
@@ -485,26 +511,26 @@ class CronSchedulerController extends AbstractStandardFormController
         );
     }
 
-    public function batchDeleteAction()
+    public function batchDeleteAction(Request $request)
     {
-        $page = $this->get('session')->get('mautic.cronscheduler.page', 1);
+        $page = $request->getSession()->get('mautic.cronscheduler.page', 1);
         $returnUrl = $this->generateUrl('mautic_cronscheduler_index', ['page' => $page]);
         $flashes = [];
 
         $postActionVars = [
             'returnUrl'       => $returnUrl,
             'viewParameters'  => ['page' => $page],
-            'contentTemplate' => 'CronSchedulerBundle:CronScheduler:index',
+            'contentTemplate' => CronSchedulerController::class . '::indexAction',
             'passthroughVars' => [
                 'activeLink'    => '#mautic_cronscheduler_index',
                 'mauticContent' => 'cronscheduler',
             ],
         ];
 
-        if ('POST' === $this->request->getMethod()) {
+        if (Request::METHOD_POST === $request->getMethod()) {
             /** @var \MauticPlugin\CronSchedulerBundle\Model\CronSchedulerModel $model */
             $model = $this->getModel('cronscheduler');
-            $ids   = json_decode($this->request->get('ids', '{}'), true);
+            $ids   = json_decode($request->query->get('ids', '{}'));
 
             $deleteIds = [];
 
@@ -518,7 +544,7 @@ class CronSchedulerController extends AbstractStandardFormController
                         'msg'  => 'mautic.cronscheduler.error.notfound',
                         'msgVars' => ['%id%' => $objectId],
                     ];
-                } elseif (!$this->get('mautic.security')->hasEntityAccess(
+                } elseif (!$this->security->hasEntityAccess(
                     'cronscheduler:cronscheduler:viewown',
                     'cronscheduler:cronscheduler:viewother',
                     $entity->getCreatedBy()
@@ -563,8 +589,8 @@ class CronSchedulerController extends AbstractStandardFormController
 
         if (null != $entity) {
             if (
-                !$this->get('mautic.security')->isGranted('cronscheduler:cronscheduler:create')
-                || !$this->get('mautic.security')->hasEntityAccess(
+                !$this->security->isGranted('cronscheduler:cronscheduler:create')
+                || !$this->security->hasEntityAccess(
                     'cronscheduler:cronscheduler:viewown',
                     'cronscheduler:cronscheduler:viewother',
                     $entity->getCreatedBy()
@@ -577,6 +603,7 @@ class CronSchedulerController extends AbstractStandardFormController
         return $this->newAction($entity);
     }
 
+
     public function runAction($objectId)
     {
         /** @var \MauticPlugin\CronSchedulerBundle\Model\CronSchedulerModel $model */
@@ -585,7 +612,7 @@ class CronSchedulerController extends AbstractStandardFormController
         /** @var \MauticPlugin\CronSchedulerBundle\Entity\ScheduledJob $entity */
         $entity = $model->getEntity($objectId);
 
-        if (null === $entity || !$this->get('mautic.security')->hasEntityAccess(
+        if (null === $entity || !$this->security->hasEntityAccess(
             'cronscheduler:cronscheduler:viewown',
             'cronscheduler:cronscheduler:viewother',
             $entity->getCreatedBy()
@@ -599,33 +626,29 @@ class CronSchedulerController extends AbstractStandardFormController
         );
 
         try {
-            $result = $this->get('mautic.cronscheduler.service.scheduler')->runJobManually($entity);
+            $result = $this->schedulerService->triggerJob($entity);
+
+            if (!$result || empty($result['success'])) {
+                $this->addFlashMessage('mautic.cron_scheduler.error.command.failed', [
+                    '%error%' => $result['output'] ?? 'Unknown error',
+                ]);
+            } else {
+                $this->addFlashMessage(
+                    'mautic.cron_scheduler.success.job.executed',
+                    ['%name%' => $entity->getName()]
+                );
+            }
         } catch (\Exception $e) {
-            $this->addFlash(
+            $this->addFlashMessage(
                 'mautic.cron_scheduler.error.command.failed',
                 ['%error%' => $e->getMessage()]
             );
-
-            return $this->redirect($viewUrl);
         }
-
-        if (!$result || empty($result['success'])) {
-            $this->addFlash('mautic.cron_scheduler.error.command.failed', [
-                '%error%' => isset($result['message']) ? $result['message'] : 'Unknown error',
-            ]);
-
-            return $this->redirect($viewUrl);
-        }
-
-        $this->addFlash(
-            'mautic.cron_scheduler.success.job.executed',
-            ['%name%' => $entity->getName()]
-        );
 
         return $this->redirect($viewUrl);
     }
 
-    public function getModelName()
+    public function getModelName(): string
     {
         return 'cronscheduler';
     }

@@ -2,25 +2,39 @@
 
 namespace MauticPlugin\CronSchedulerBundle\Model;
 
+use Doctrine\ORM\EntityManagerInterface;
+use Mautic\CoreBundle\Helper\CoreParametersHelper;
+use Mautic\CoreBundle\Security\Permissions\CorePermissions;
 use Mautic\CoreBundle\Model\AjaxLookupModelInterface;
 use Mautic\CoreBundle\Model\FormModel;
 use MauticPlugin\CronSchedulerBundle\Entity\JobExecutionLog;
 use MauticPlugin\CronSchedulerBundle\Entity\ScheduledJob;
 use MauticPlugin\CronSchedulerBundle\Form\Type\CronSchedulerType;
 use MauticPlugin\CronSchedulerBundle\Service\SchedulerService;
+use Psr\Log\LoggerInterface;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Mautic\CoreBundle\Helper\DateTimeHelper;
+use Symfony\Component\Form\FormFactoryInterface;
+use Symfony\Component\Form\FormInterface;
+use Mautic\CoreBundle\Translation\Translator;
+use Mautic\CoreBundle\Helper\UserHelper;
 
 class CronSchedulerModel extends FormModel implements AjaxLookupModelInterface
 {
-    /**
-     * @var SchedulerService
-     */
-    private $schedulerService;
-
-    public function __construct(SchedulerService $schedulerService)
-    {
-        $this->schedulerService = $schedulerService;
+    public function __construct(
+        EntityManagerInterface $em,
+        CorePermissions $security,
+        EventDispatcherInterface $dispatcher,
+        UrlGeneratorInterface $router,
+        Translator $translator,
+        UserHelper $userHelper,
+        LoggerInterface $logger,
+        CoreParametersHelper $coreParametersHelper,
+        private SchedulerService $schedulerService
+    ) {
+        parent::__construct($em, $security, $dispatcher, $router, $translator, $userHelper, $logger, $coreParametersHelper);
     }
 
     public function getRepository()
@@ -38,7 +52,7 @@ class CronSchedulerModel extends FormModel implements AjaxLookupModelInterface
         return 'cronscheduler:cronscheduler';
     }
 
-    public function createForm($entity, $formFactory, $action = null, $options = [])
+    public function createForm($entity, FormFactoryInterface $formFactory, $action = null, $options = []): FormInterface
     {
         if (!$entity instanceof ScheduledJob) {
             throw new MethodNotAllowedHttpException(['cronscheduler']);
@@ -51,7 +65,7 @@ class CronSchedulerModel extends FormModel implements AjaxLookupModelInterface
         return $formFactory->create(CronSchedulerType::class, $entity, $options);
     }
 
-    public function getEntity($id = null)
+    public function getEntity($id = null): ?ScheduledJob
     {
         if (null == $id) {
             $entity = new ScheduledJob();
@@ -61,13 +75,13 @@ class CronSchedulerModel extends FormModel implements AjaxLookupModelInterface
         return $entity;
     }
 
-    public function saveEntity($entity, $unlock = true)
+    public function saveEntity($entity, $unlock = true): void
     {
         if (!$entity->getId() || $this->hasTriggerSettingsChanged($entity)) {
             $this->setNextRunAtIfChanged($entity);
         }
 
-        return parent::saveEntity($entity, $unlock);
+        parent::saveEntity($entity, $unlock);
     }
 
     private function setNextRunAtIfChanged(ScheduledJob $entity)
@@ -75,12 +89,12 @@ class CronSchedulerModel extends FormModel implements AjaxLookupModelInterface
         $dateTimeHelper = new DateTimeHelper();
         $publishUp = $entity->getPublishUp();
 
-        if($publishUp && $publishUp >= $dateTimeHelper->getLocalDateTime()) {
+        if ($publishUp && $publishUp >= $dateTimeHelper->getLocalDateTime()) {
             $nextRunAt = $this->schedulerService->calculateNextRunTime($entity, $publishUp);
-        }else{
+        } else {
             $nextRunAt = $this->schedulerService->calculateNextRunTime($entity);
         }
-        
+
         $entity->setNextRunAt($nextRunAt);
     }
 
@@ -103,33 +117,33 @@ class CronSchedulerModel extends FormModel implements AjaxLookupModelInterface
             if (isset($changes[$field])) {
 
                 //Special case for triggerInterval
-                if($field == 'triggerInterval'){
+                if ($field == 'triggerInterval') {
                     $oldValue = $changes[$field][0];
                     $newValue = $changes[$field][1];
-                    if($oldValue != $newValue) {
+                    if ($oldValue != $newValue) {
                         return true;
                     }
 
                     //Special case for triggerHour
-                }elseif($field == 'triggerHour'){
+                } elseif ($field == 'triggerHour') {
                     $oldValue = $changes[$field][0];
                     $newValue = $changes[$field][1];
 
-                    if(empty($oldValue) && !empty($newValue)) {
+                    if (empty($oldValue) && !empty($newValue)) {
                         return true;
                     }
-                    if(!empty($oldValue) && empty($newValue)) {
+                    if (!empty($oldValue) && empty($newValue)) {
                         return true;
                     }
 
-                    if(empty($oldValue) && empty($newValue)) {
+                    if (empty($oldValue) && empty($newValue)) {
                         return false;
                     }
 
                     $oldDateTime = new \DateTime($oldValue);
-                    $newDateTime = new \DateTime('1970-01-01 '.$newValue);
+                    $newDateTime = new \DateTime('1970-01-01 ' . $newValue);
 
-                    if($oldDateTime->format('H:i:s') != $newDateTime->format('H:i:s')) {
+                    if ($oldDateTime->format('H:i:s') != $newDateTime->format('H:i:s')) {
                         return true;
                     }
                 }

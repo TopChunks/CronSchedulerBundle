@@ -4,15 +4,9 @@ namespace MauticPlugin\CronSchedulerBundle\Service;
 
 class CommandProvider
 {
-    /**
-     * @var string[]
-     */
-    private array $commands;
-
-    public function __construct(array $commands = [])
-    {
-        $this->commands = $commands;
-    }
+    public function __construct(
+        private array $commands = []
+    ) {}
 
     public function getAvailableCommands(): array
     {

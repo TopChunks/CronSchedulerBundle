@@ -19,7 +19,7 @@ class JobExecutionLog extends CommonEntity
     private $errorMessage;
     private $duration;
 
-    public static function loadMetadata(MappingClassMetadata $metadata)
+    public static function loadMetadata(MappingClassMetadata $metadata): void
     {
         $builder = new ClassMetadataBuilder($metadata);
         $builder

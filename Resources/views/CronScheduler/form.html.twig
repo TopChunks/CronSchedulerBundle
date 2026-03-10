@@ -1,0 +1,165 @@
+{% extends '@MauticCore/Default/content.html.twig' %}
+
+{% block mauticContent %}cronscheduler{% endblock %}
+
+{% set scheduledjob = form.vars.data %}
+{% set isExisting = scheduledjob.getId() is not empty %}
+{% set header = isExisting
+    ? 'mautic.cron.header.edit'|trans({'%name%': scheduledjob.getName()})
+    : 'mautic.cron.header.new'|trans
+%}
+
+{% block headerTitle %}{{ header }}{% endblock %}
+
+{% block content %}
+    {{ form_start(form) }}
+    <div class="box-layout">
+        <div class="col-md-9 bg-white height-auto">
+            <div class="row">
+                <div class="col-xs-12">
+                    <ul class="bg-auto nav nav-tabs pr-md pl-md">
+                        <li class="active">
+                            <a href="#details-container" data-toggle="tab">
+                                {{ 'mautic.core.details'|trans }}
+                            </a>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content pa-md">
+                        <div class="tab-pane fade in active bdr-w-0" id="details-container">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    {{ form_row(form.name) }}
+                                </div>
+                                <div class="col-md-6">
+                                    {{ form_row(form.command) }}
+                                </div>
+                            </div>
+
+                            {% if form.triggerMode is defined %}
+                                {{ form_row(form.triggerMode) }}
+
+                                <div id="triggerDate" class="{{ form.triggerMode.vars.data != 'date' ? 'hide' : '' }}">
+                                    {{ form_row(form.triggerDate) }}
+                                </div>
+
+                                <div id="triggerInterval" class="{{ form.triggerMode.vars.data != 'interval' ? 'hide' : '' }}">
+                                    <div class="row">
+                                        <div class="col-sm-2">
+                                            {{ form_row(form.triggerInterval) }}
+                                        </div>
+                                        <div class="col-sm-6">
+                                            {{ form_row(form.triggerIntervalUnit) }}
+                                        </div>
+                                        <div class="col-sm-4 hide" id="interval_settings_days">
+                                            <div style="display:inline-block; font-weight: 600;">
+                                                {{ 'mautic.cronscheduler.form.type.interval_trigger_at'|trans }}
+                                            </div>
+                                            <div style="width: 75px; display:inline-block; margin:0 10px 0 10px;">
+                                                {{ form_widget(form.triggerHour) }}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div id="interval_settings" class="hide">
+                                        <div class="row mt-5">
+                                            <div class="col-sm-12" style="font-weight: 600;">
+                                                {{ 'mautic.campaign.form.type.interval_trigger_restricted_dow'|trans }}
+                                            </div>
+                                        </div>
+                                        <div class="row">
+                                            {% for dayField in form.triggerRestrictedDaysOfWeek %}
+                                                {% if loop.index0 in [0, 1] %}
+                                                    {% if loop.first %}
+                                                        <div class="col-sm-3">
+                                                    {% endif %}
+                                                    <div class="checkbox">
+                                                        <label>
+                                                            {{ form_widget(dayField) }}
+                                                            {{ dayField.vars.label|trans }}
+                                                        </label>
+                                                    </div>
+                                                    {% if loop.index0 == 1 %}
+                                                        </div>
+                                                    {% endif %}
+                                                {% elseif loop.index0 in [2, 3] %}
+                                                    {% if loop.index0 == 2 %}
+                                                        <div class="col-sm-3">
+                                                    {% endif %}
+                                                    <div class="checkbox">
+                                                        <label>
+                                                            {{ form_widget(dayField) }}
+                                                            {{ dayField.vars.label|trans }}
+                                                        </label>
+                                                    </div>
+                                                    {% if loop.index0 == 3 %}
+                                                        </div>
+                                                    {% endif %}
+                                                {% elseif loop.index0 in [4, 5] %}
+                                                    {% if loop.index0 == 4 %}
+                                                        <div class="col-sm-3">
+                                                    {% endif %}
+                                                    <div class="checkbox">
+                                                        <label>
+                                                            {{ form_widget(dayField) }}
+                                                            {{ dayField.vars.label|trans }}
+                                                        </label>
+                                                    </div>
+                                                    {% if loop.index0 == 5 %}
+                                                        </div>
+                                                    {% endif %}
+                                                {% elseif loop.index0 in [6, 7] %}
+                                                    {% if loop.index0 == 6 %}
+                                                        <div class="col-sm-3">
+                                                    {% endif %}
+                                                    <div class="checkbox">
+                                                        <label>
+                                                            {{ form_widget(dayField) }}
+                                                            {{ dayField.vars.label|trans }}
+                                                        </label>
+                                                    </div>
+                                                    {% if loop.index0 == 7 %}
+                                                        </div>
+                                                    {% endif %}
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div id="cron-notation" class="{{ form.triggerMode.vars.data != 'cron' ? 'hide' : '' }}">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            {{ form_row(form.cronNotation) }}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    {{ form_row(form.arguments) }}
+                                </div>
+                                <div class="col-md-6">
+                                    {{ form_errors(form) }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 bg-white height-auto bdr-l">
+            <div class="pr-lg pl-lg pt-md pb-md">
+                {{ form_row(form.isPublished) }}
+                {{ form_row(form.priority) }}
+                {{ form_row(form.category) }}
+                {{ form_row(form.publishUp) }}
+                {{ form_row(form.publishDown) }}
+            </div>
+        </div>
+    </div>
+    {{ form_end(form) }}
+{% endblock %}
+

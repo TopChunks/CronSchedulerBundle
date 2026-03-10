@@ -4,29 +4,18 @@ namespace MauticPlugin\CronSchedulerBundle\EventListener;
 
 use Mautic\CoreBundle\CoreEvents;
 use Mautic\CoreBundle\Event\CustomButtonEvent;
-use Mautic\CoreBundle\Templating\Helper\ButtonHelper;
+use Mautic\CoreBundle\Twig\Helper\ButtonHelper;
 use MauticPlugin\CronSchedulerBundle\Entity\ScheduledJob;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\Routing\RouterInterface;
-use Symfony\Component\Translation\TranslatorInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 class ButtonSubscriber implements EventSubscriberInterface
 {
-    /**
-     * @var RouterInterface
-     */
-    private $router;
-
-    /**
-     * @var TranslatorInterface
-     */
-    private $translator;
-
-    public function __construct(RouterInterface $router, TranslatorInterface $translator)
-    {
-        $this->router     = $router;
-        $this->translator = $translator;
-    }
+    public function __construct(
+        private RouterInterface $router,
+        private TranslatorInterface $translator
+    ) {}
 
     public static function getSubscribedEvents()
     {
@@ -41,20 +30,20 @@ class ButtonSubscriber implements EventSubscriberInterface
         $location = $event->getLocation();
 
         if ($location === ButtonHelper::LOCATION_NAVBAR) {
-
             $navbarLogsButton = [
+                'btnClass' => 'btn-nospin',
                 'attr' => [
-                    'class' => 'btn btn-default btn-nospin dropdown-toggle',
-                    'href'  => 'javascript:void(0);',
+                    'href'    => 'javascript:void(0);',
+                    'style'   => 'color:black',
                     'onclick' => 'Mautic.showRecentJobLogs(event)',
-                    'id' => 'recentJobLogsBtn',
-                    'title' => $this->translator->trans('mautic.cron_scheduler.execution.logs'),
-                    'data-toggle' => 'tooltip',
+                    'id'      => 'recentJobLogsBtn',
+                ],
+                'iconClass' => 'ri-history-line ri-xl',
+                'tooltip'   => [
+                    'title'          => 'mautic.cron_scheduler.execution.logs',
                     'data-placement' => 'bottom',
                 ],
-                'iconClass' => 'fa fa-history text-primary',
             ];
-
             $event->addButton($navbarLogsButton, ButtonHelper::LOCATION_NAVBAR);
 
             return;
@@ -71,7 +60,7 @@ class ButtonSubscriber implements EventSubscriberInterface
                     ),
                     'data-ignore-formexit' => 'true',
                 ],
-                'iconClass' => 'fa fa-play',
+                'iconClass' => 'ri-play-fill',
                 'btnText'   => $this->translator->trans('mautic.cronscheduler.run-manually'),
                 'primary'   => true,
             ];

@@ -71,13 +71,13 @@ class ScheduledJob extends FormEntity
      * @var string
      */
     private $triggerMode;
-    
+
     /**
      * @var int
      */
     private $priority = 0;
 
-    public static function loadMetadata(MappingClassMetadata $metadata)
+    public static function loadMetadata(MappingClassMetadata $metadata): void
     {
         $builder = new ClassMetadataBuilder($metadata);
         $builder
@@ -157,7 +157,7 @@ class ScheduledJob extends FormEntity
         );
     }
 
-    public static function loadApiMetadata(ApiMetadataDriver $metadata)
+    public static function loadApiMetadata(ApiMetadataDriver $metadata): void
     {
         $metadata->setGroupPrefix('scheduledjob')
             ->addListProperties(
@@ -392,7 +392,7 @@ class ScheduledJob extends FormEntity
         $this->isChanged('systemCron', $systemCron);
         $this->systemCron = $systemCron;
     }
-    
+
     public function getLockedAt()
     {
         return $this->lockedAt;

@@ -11,23 +11,21 @@ use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\DateTimeType;
 use Symfony\Component\Form\Extension\Core\Type\NumberType;
-use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\Validator\Constraints\Callback;
 use Symfony\Component\Validator\Context\ExecutionContextInterface;
 use Cron\CronExpression;
+use Mautic\CoreBundle\Form\Type\PublishDownDateType;
+use Mautic\CoreBundle\Form\Type\PublishUpDateType;
 
 class CronSchedulerType extends AbstractType
 {
-    private CommandProvider $commandProvider;
+    public function __construct(
+        private CommandProvider $commandProvider
+    ) {}
 
-    public function __construct(CommandProvider $commandProvider)
-    {
-        $this->commandProvider = $commandProvider;
-    }
-
-    public function buildForm(FormBuilderInterface $builder, array $options)
+    public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder->add(
             'name',
@@ -46,11 +44,15 @@ class CronSchedulerType extends AbstractType
             'command',
             ChoiceType::class,
             [
-                'label'      => 'mautic.cron_scheduler.form.command',
-                'label_attr' => ['class' => 'control-label'],
-                'required'   => true,
-                'choices'    => $this->commandProvider->getAvailableCommands(),
-                'attr'       => [
+                'label'             => 'mautic.cron_scheduler.form.command',
+                'label_attr'        => ['class' => 'control-label'],
+                'required'          => true,
+                'choices'           => $this->commandProvider->getAvailableCommands(),
+                'placeholder'        => 'mautic.core.form.chooseone',
+                'choice_attr'       => function ($choice, $key) {
+                    return ['data-value' => $key];
+                },
+                'attr'              => [
                     'class' => 'form-control',
                 ],
             ]
@@ -93,37 +95,12 @@ class CronSchedulerType extends AbstractType
 
         $builder->add('isPublished', YesNoButtonGroupType::class);
 
-        $builder->add(
-            'publishUp',
-            DateTimeType::class,
-            [
-                'widget'     => 'single_text',
-                'label'      => 'mautic.core.form.publishup',
-                'label_attr' => ['class' => 'control-label'],
-                'attr'       => [
-                    'class'       => 'form-control',
-                    'data-toggle' => 'datetime',
-                ],
-                'format'   => 'yyyy-MM-dd HH:mm',
-                'required' => false,
-            ]
-        );
+        $builder->add('isPublished', YesNoButtonGroupType::class, [
+            'label' => 'mautic.core.form.available',
+        ]);
 
-        $builder->add(
-            'publishDown',
-            DateTimeType::class,
-            [
-                'widget'     => 'single_text',
-                'label'      => 'mautic.core.form.publishdown',
-                'label_attr' => ['class' => 'control-label'],
-                'attr'       => [
-                    'class'       => 'form-control',
-                    'data-toggle' => 'datetime',
-                ],
-                'format'   => 'yyyy-MM-dd HH:mm',
-                'required' => false,
-            ]
-        );
+        $builder->add('publishUp', PublishUpDateType::class);
+        $builder->add('publishDown', PublishDownDateType::class);
 
         $choices = [
             'interval'  => 'mautic.cronscheduler.trigger.for.every',
@@ -162,6 +139,7 @@ class CronSchedulerType extends AbstractType
                 ],
                 'widget' => 'single_text',
                 'format' => 'yyyy-MM-dd HH:mm',
+                'html5'  => false,
                 'constraints' => [
                     new Callback([
                         'callback' => function ($value, ExecutionContextInterface $context) {
@@ -250,7 +228,7 @@ class CronSchedulerType extends AbstractType
                 ],
                 'required' => false,
                 'data'  => ($data) ? $data->format('H:i') : $data,
-              ],
+            ],
         );
 
         $builder->add(

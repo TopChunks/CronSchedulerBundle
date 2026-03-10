@@ -14,30 +14,14 @@ use Mautic\CoreBundle\Helper\DateTimeHelper;
 
 class SchedulerService
 {
-    /**
-     * @var EntityManager
-     */
-    private $em;
-
-    /**
-     * @var KernelInterface
-     */
-    private $kernel;
-
     private ?Application $application = null;
+    private DateTimeHelper $dateTimeHelper;
 
-    /**
-     * System timezone for user display.
-     *
-     * @var DateTimeHelper
-     */
-    private $dateTimeHelper;
-
-    public function __construct(EntityManager $em, KernelInterface $kernel)
-    {
-        $this->em     = $em;
-        $this->kernel = $kernel;
-        $this->dateTimeHelper = new DateTimeHelper(null, null, 'local');
+    public function __construct(
+        private EntityManager $em,
+        private KernelInterface $kernel
+    ) {
+        $this->dateTimeHelper = new DateTimeHelper();
     }
 
     public function isDue(ScheduledJob $job): bool
@@ -82,10 +66,10 @@ class SchedulerService
         if ($job->getNextRunAt() && $now >= $job->getNextRunAt()) {
             return true;
         }
-        
+
         //If the next run time is not set, then calculate it and return false. So that the next run time is set and the job is scheduled to run in the next run time.
         $nextRunAt = $this->calculateNextIntervalRun($job, $job->getLastRunAt() ?? $now);
-        if($nextRunAt) {
+        if ($nextRunAt) {
             $job->setNextRunAt($nextRunAt);
             $this->em->persist($job);
             $this->em->flush();
@@ -105,7 +89,8 @@ class SchedulerService
         }
 
         try {
-            $cron = new CronExpression($job->getCronNotation());
+            // Use factory to be compatible with cron-expression v3+
+            $cron = CronExpression::factory($job->getCronNotation());
             if (!$cron->isDue($now)) {
                 return false;
             }
@@ -373,7 +358,8 @@ class SchedulerService
         }
 
         try {
-            $cron = new CronExpression($job->getCronNotation());
+            // Use factory to be compatible with cron-expression v3+
+            $cron = CronExpression::factory($job->getCronNotation());
             $next = $cron->getNextRunDate($now);
 
             return $next;
@@ -398,7 +384,7 @@ class SchedulerService
         $normalizedUnit = $this->normalizeIntervalUnit($unit);
         $next->modify(sprintf('+%d %s', $interval, $normalizedUnit));
 
-        if($unit === 'i' || $unit === 'h') {
+        if ($unit === 'i' || $unit === 'h') {
             return $next;
         }
 
@@ -407,12 +393,12 @@ class SchedulerService
             if ($job->getTriggerHour()) {
                 $time = $job->getTriggerHour();
                 $next->setTime((int) $time->format('H'), (int) $time->format('i'));
-            }else{
+            } else {
                 $next->setTime(0, 0, 0);
             }
         }
 
-        if(!empty($allowedDays)){
+        if (!empty($allowedDays)) {
             $maxAttempts   = 366; // Safety limit
             $attempts      = 0;
 
