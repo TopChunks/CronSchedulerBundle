@@ -140,6 +140,9 @@ Mautic.showRecentJobLogs = function (e) {
 
             const $container = $dropdown.find('#cronLogsContainer');
             $container.html(html);
+            $container.off('click.cronLogs').on('click.cronLogs', 'a', function () {
+                $dropdown.hide();
+            });
 
             // Activate Mautic's AJAX/link behavior on newly injected links.
             if (typeof Mautic.makeLinksAlive === 'function') {
