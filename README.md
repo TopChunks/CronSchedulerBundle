@@ -16,7 +16,7 @@ It provides:
 
 ## Requirements
 
-- **Mautic 5.x** (tested with a standard Mautic 5 installation).
+- **Mautic 6.x** (tested with a standard Mautic 6 installation).
 - **PHP CLI** available in the environment that runs your cron jobs.
 - **Composer dependency**:
 

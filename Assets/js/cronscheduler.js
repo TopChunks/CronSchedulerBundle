@@ -101,12 +101,12 @@ Mautic.showRecentJobLogs = function (e) {
             '<h6 class="panel-title fw-sb mb-0" style="flex:1;">' + title + '</h6>' +
             '<a href="javascript:void(0);" class="btn btn-default btn-xs btn-nospin text-danger"' +
             ' onclick="mQuery(\'#' + DROPDOWN_ID + '\').hide();" title="Close">' +
-            '<i class="fa fa-times"></i>' +
+            '<i class="ri-close-circle-line"></i>' +
             '</a>' +
             '</div>' +
             '<div class="pt-0 pb-xs pl-0 pr-0">' +
             '<div class="scroll-content slimscroll" id="cronLogsContainer" style="height:250px;">' +
-            '<div class="spinner text-center"><i class="fa fa-spinner fa-spin"></i></div>' +
+            '<div class="spinner text-center"><i class="ri-loader-3-line ri-spin"></i></div>' +
             '</div>' +
             '</div>' +
             '</div>' +
@@ -140,8 +140,10 @@ Mautic.showRecentJobLogs = function (e) {
 
             const $container = $dropdown.find('#cronLogsContainer');
             $container.html(html);
+            $container.off('click.cronLogs').on('click.cronLogs', 'a', function () {
+                $dropdown.hide();
+            });
 
-            // Activate Mautic's AJAX/link behavior on newly injected links.
             if (typeof Mautic.makeLinksAlive === 'function') {
                 Mautic.makeLinksAlive($container.find('a[data-toggle="ajax"]'));
             }

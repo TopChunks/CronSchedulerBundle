@@ -10,14 +10,47 @@
     {% if isIndex %}
         <div id="page-list-wrapper" class="panel panel-default">
             {{- include('@MauticCore/Helper/list_toolbar.html.twig', {
-                searchValue: searchValue,
-                action: actionRoute,
-                list_actions: include('@MauticCore/Helper/toolbar_page_actions.html.twig', {
-                    templateButtons: {
-                        new: permissions['cronscheduler:cronscheduler:create']
+                'searchValue': searchValue,
+                'action': indexRoute,
+                'page_actions': {
+                    'templateButtons': {
+                        'new': permissions['cronscheduler:cronscheduler:create'],
                     },
-                    routeBase: 'cronscheduler'
-                })
+                    'routeBase': 'cronscheduler',
+                    'langVar': 'cron.scheduler',
+                },
+                'bulk_actions': {
+                    'routeBase': 'cronscheduler',
+                    'templateButtons': {
+                        'delete': permissions['cronscheduler:cronscheduler:deleteown'] or permissions['cronscheduler:cronscheduler:deleteother'],
+                    },
+                },
+                'quickFilters': [
+                    {
+                        'search': 'mautic.core.searchcommand.ispublished',
+                        'label': 'mautic.core.form.available',
+                        'tooltip': 'mautic.core.searchcommand.ispublished.description',
+                        'icon': 'ri-check-line'
+                    },
+                    {
+                        'search': 'mautic.core.searchcommand.isunpublished',
+                        'label': 'mautic.core.form.unavailable',
+                        'tooltip': 'mautic.core.searchcommand.isunpublished.description',
+                        'icon': 'ri-close-line'
+                    },
+                    {
+                        'search': 'mautic.core.searchcommand.isuncategorized',
+                        'label': 'mautic.core.form.uncategorized',
+                        'tooltip': 'mautic.core.searchcommand.isuncategorized.description',
+                        'icon': 'ri-folder-unknow-line'
+                    },
+                    {
+                        'search': 'mautic.core.searchcommand.ismine',
+                        'label': 'mautic.core.searchcommand.ismine.label',
+                        'tooltip': 'mautic.core.searchcommand.ismine.description',
+                        'icon': 'ri-user-line'
+                    }
+                ]
             }) -}}
             <div class="page-list">
                 {{ block('listResults') }}
@@ -31,19 +64,13 @@
 {% block listResults %}
     {% if items is not empty %}
         <div class="table-responsive">
-            <table class="table table-hover cronscheduler-list">
+            <table class="table table-hover cronscheduler-list" id="cronSchedulerTable">
                 <thead>
                 <tr>
-                    {{- include(
-                        '@MauticCore/Helper/tableheader.html.twig',
-                        {
-                            checkall: 'true',
-                            routeBase: 'cronscheduler',
-                            templateButtons: {
-                                delete: permissions['cronscheduler:cronscheduler:deleteown'] or permissions['cronscheduler:cronscheduler:deleteother']
-                            }
-                        }
-                    ) -}}
+                    {{- include('@MauticCore/Helper/tableheader.html.twig', {
+                        'checkall': 'true',
+                        'target': '#cronSchedulerTable',
+                    }) -}}
 
                     {{- include(
                         '@MauticCore/Helper/tableheader.html.twig',
