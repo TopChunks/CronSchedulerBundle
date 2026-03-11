@@ -35,7 +35,7 @@ class DeleteOlderLogsCommand extends Command
         parent::configure();
     }
 
-    protected function execute(InputInterface $input, OutputInterface $output)
+    protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io            = new SymfonyStyle($input, $output);
         $retentionDays = $this->coreParametersHelper->get('log_retention_days');
@@ -46,6 +46,6 @@ class DeleteOlderLogsCommand extends Command
             $retentionDays
         ));
 
-        return 0;
+        return Command::SUCCESS;
     }
 }

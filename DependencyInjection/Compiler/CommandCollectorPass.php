@@ -78,6 +78,34 @@ class CommandCollectorPass implements CompilerPassInterface
                     }
                 }
 
+                if ($reflectionClass->hasProperty('defaultName')) {
+                    $prop = $reflectionClass->getProperty('defaultName');
+                    if ($prop->isStatic()) {
+                        $defaults    = $reflectionClass->getDefaultProperties();
+                        $commandName = $defaults['defaultName'] ?? null;
+                        if (is_string($commandName) && $commandName !== '') {
+                            if (!in_array($commandName, $excludedCommands, true)) {
+                                $commandNames[] = $commandName;
+                            }
+                            continue;
+                        }
+                    }
+                }
+
+                if (class_exists(\Symfony\Component\Console\Attribute\AsCommand::class)) {
+                    $attributes = $reflectionClass->getAttributes(\Symfony\Component\Console\Attribute\AsCommand::class);
+                    if (!empty($attributes)) {
+                        $instance    = $attributes[0]->newInstance();
+                        $commandName = $instance->name ?? null;
+                        if (is_string($commandName) && $commandName !== '') {
+                            if (!in_array($commandName, $excludedCommands, true)) {
+                                $commandNames[] = $commandName;
+                            }
+                            continue;
+                        }
+                    }
+                }
+
                 if ($reflectionClass->hasMethod('configure')) {
                     $configureMethod = $reflectionClass->getMethod('configure');
                     $fileName = $configureMethod->getFileName();

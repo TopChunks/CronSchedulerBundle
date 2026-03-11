@@ -155,7 +155,7 @@ class CronSchedulerModel extends FormModel implements AjaxLookupModelInterface
         return false;
     }
 
-    public function getLookupResults($type, $filter = '', $limit = 10, $start = 0)
+    public function getLookupResults(string $type, string|array $filter = '', int $limit = 10, int $start = 0, array $options = []): array
     {
         $results = [];
         switch ($type) {

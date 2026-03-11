@@ -171,13 +171,7 @@
                             </div>
                         </td>
                         <td class="visible-md visible-lg">
-                            {% set category = item.getCategory() %}
-                            {% set catName = category is not empty ? category.getTitle() : 'mautic.core.form.uncategorized'|trans %}
-                            {% set color   = category is not empty ? '#' ~ category.getColor() : 'inherit' %}
-                            <span style="white-space: nowrap;">
-                                <span class="label label-default pa-4" style="border: 1px solid #d5d5d5; background: {{ color }};"> </span>
-                                <span>{{ catName }}</span>
-                            </span>
+                            {{ include('@MauticCore/Modules/category--expanded.html.twig', {'category': item.getCategory()}) }}
                         </td>
                         <td class="visible-md visible-lg">
                             {% set commandParts = item.getCommand()|split(':') %}

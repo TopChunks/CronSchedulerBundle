@@ -48,7 +48,7 @@ class TriggerSchedulerJobs extends Command
         parent::configure();
     }
 
-    protected function execute(InputInterface $input, OutputInterface $output)
+    protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io    = new SymfonyStyle($input, $output);
         $force = $input->getOption('force');
@@ -62,7 +62,7 @@ class TriggerSchedulerJobs extends Command
         if (empty($scheduledJobs)) {
             $io->warning('No active scheduled jobs found.');
 
-            return 0;
+            return Command::SUCCESS;
         }
 
         if ($debug) {
@@ -134,6 +134,6 @@ class TriggerSchedulerJobs extends Command
             $failed
         ));
 
-        return 0;
+        return Command::SUCCESS;
     }
 }

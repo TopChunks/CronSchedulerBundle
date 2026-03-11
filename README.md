@@ -16,7 +16,7 @@ It provides:
 
 ## Requirements
 
-- **Mautic 6.x** (tested with a standard Mautic 6 installation).
+- **Mautic 7.x** (tested with a standard Mautic 7 installation).
 - **PHP CLI** available in the environment that runs your cron jobs.
 - **Composer dependency**:
 
@@ -137,7 +137,7 @@ You wire Mautic’s CronScheduler command into your system’s cron (or other sc
 
 ```bash
 # Every minute (example)
-* * * * * /usr/bin/php /var/www/mautic-5/bin/console mautic:jobs:trigger
+* * * * * /usr/bin/php /var/www/mautic-7/bin/console mautic:jobs:trigger
 ```
 
 The flow is:
