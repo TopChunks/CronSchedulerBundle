@@ -144,13 +144,9 @@
                             </div>
                         </td>
                         <td class="visible-md visible-lg">
-                            {% set category = item.getCategory() %}
-                            {% set catName = category is not empty ? category.getTitle() : 'mautic.core.form.uncategorized'|trans %}
-                            {% set color   = category is not empty ? '#' ~ category.getColor() : 'inherit' %}
-                            <span style="white-space: nowrap;">
-                                <span class="label label-default pa-4" style="border: 1px solid #d5d5d5; background: {{ color }};"> </span>
-                                <span>{{ catName }}</span>
-                            </span>
+                            {% set category = item.category %}
+                            {% set catName, color = (category) ? category.title : 'mautic.core.form.uncategorized'|trans, (category) ? '#' ~ category.color : '#' %}
+                            <div class="d-flex ai-center gap-xs"><span class="label label-gray label-category" style="background: {{ color }};"> </span> {{ catName }}</div>
                         </td>
                         <td class="visible-md visible-lg">
                             {% set commandParts = item.getCommand()|split(':') %}
