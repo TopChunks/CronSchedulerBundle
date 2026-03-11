@@ -7,6 +7,8 @@ use Doctrine\ORM\EntityManager;
 use MauticPlugin\CronSchedulerBundle\Entity\JobExecutionLog;
 use MauticPlugin\CronSchedulerBundle\Entity\ScheduledJob;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
+use Symfony\Component\Console\Exception\CommandNotFoundException;
+use Mautic\CoreBundle\Command\ModeratedCommand;
 use Symfony\Component\Console\Input\StringInput;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\HttpKernel\KernelInterface;
@@ -101,22 +103,6 @@ class SchedulerService
         }
     }
 
-    private function meetsTimeRestrictions(ScheduledJob $job, \DateTime $now): bool
-    {
-        if ($job->getTriggerHour()) {
-            $nowMinutes =
-                ((int) $now->format('H')) * 60 + (int) $now->format('i');
-
-            $targetMinutes =
-                ((int) $job->getTriggerHour()->format('H')) * 60 +
-                (int) $job->getTriggerHour()->format('i');
-
-            return abs($nowMinutes - $targetMinutes) <= 1;
-        }
-
-        return true;
-    }
-
     /**
      * Check if current day meets day-of-week restrictions.
      */
@@ -137,65 +123,17 @@ class SchedulerService
         return in_array($currentDayOfWeek, $allowedDays, true);
     }
 
-    private function isNthValidDay(ScheduledJob $job, \DateTime $now): bool
-    {
-        $last = $job->getLastRunAt();
-        if (!$last) {
-            return $this->meetsDayRestrictions($job, $now);
-        }
-
-        $allowedDays = $job->getTriggerRestrictedDaysOfWeek();
-        $interval    = $job->getTriggerInterval();
-
-        if (empty($allowedDays) || !$interval) {
-            return true;
-        }
-
-        // Count valid days since last run
-        $validDayCount = 0;
-        $cursor        = clone $last;
-        $cursor->setTime(0, 0, 0); // Start of day
-        $attempts    = 0;
-        $maxAttempts = 366;
-
-        $nowDate = clone $now;
-        $nowDate->setTime(0, 0, 0);
-
-        while ($cursor < $nowDate && $attempts < $maxAttempts) {
-            $cursor->modify('+1 day');
-
-            $dayOfWeek = (int) $cursor->format('w');
-
-            // Handle special value -1 for weekdays
-            if (in_array(-1, $allowedDays, true)) {
-                if ($dayOfWeek >= 1 && $dayOfWeek <= 5) {
-                    ++$validDayCount;
-                }
-            } elseif (in_array($dayOfWeek, $allowedDays, true)) {
-                ++$validDayCount;
-            }
-            ++$attempts;
-        }
-
-        return $validDayCount >= $interval && $this->meetsDayRestrictions($job, $now);
-    }
-
     public function runJobManually(ScheduledJob $job)
     {
         try {
-            $commandString = trim($job->getCommand() . ' ' . $job->getArguments());
-            $commandString .= ' --bypass-locking';
+            $commandString = $this->buildCommandString($job);
             $input         = new StringInput($commandString);
 
-            if (null === $this->application) {
-                $this->application = new Application($this->kernel);
-                $this->application->setAutoExit(false);
-                $this->application->setCatchExceptions(true);
-            }
+            $application = $this->getApplication();
 
             $output = new BufferedOutput();
 
-            $exitCode     = $this->application->run($input, $output);
+            $exitCode     = $application->run($input, $output);
             $outputString = $output->fetch();
             $success      = (0 === $exitCode);
 
@@ -239,18 +177,14 @@ class SchedulerService
         $outputString = '';
 
         try {
-            $commandString = trim($job->getCommand() . ' ' . $job->getArguments());
+            $commandString = $this->buildCommandString($job);
             $input         = new StringInput($commandString);
 
-            if (null === $this->application) {
-                $this->application = new Application($this->kernel);
-                $this->application->setAutoExit(false);
-                $this->application->setCatchExceptions(true);
-            }
+            $application = $this->getApplication();
 
             $output = new BufferedOutput();
 
-            $exitCode     = $this->application->run($input, $output);
+            $exitCode     = $application->run($input, $output);
             $outputString = $output->fetch();
             $success      = (0 === $exitCode);
 
@@ -464,5 +398,43 @@ class SchedulerService
         $this->em->flush();
 
         return true;
+    }
+
+    private function getApplication(): Application
+    {
+        if (null === $this->application) {
+            $this->application = new Application($this->kernel);
+            $this->application->setAutoExit(false);
+            $this->application->setCatchExceptions(true);
+        }
+
+        return $this->application;
+    }
+
+    private function buildCommandString(ScheduledJob $job): string
+    {
+        $command = trim($job->getCommand());
+        $args    = trim((string) $job->getArguments());
+
+        if (str_contains($args, '--bypass-locking')) {
+            return trim($command . ' ' . $args);
+        }
+
+        try {
+            $application = $this->getApplication();
+            $resolved    = $application->find($command);
+
+            $supportsBypass =
+                $resolved instanceof ModeratedCommand
+                || $resolved->getDefinition()->hasOption('bypass-locking');
+
+            if ($supportsBypass) {
+                $args = trim($args . ' --bypass-locking');
+            }
+        } catch (CommandNotFoundException $e) {
+            throw new \Exception("Command not found: $command");
+        }
+
+        return trim($command . ' ' . $args);
     }
 }
