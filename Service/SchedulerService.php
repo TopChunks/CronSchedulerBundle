@@ -184,7 +184,6 @@ class SchedulerService
     {
         try {
             $commandString = trim($job->getCommand() . ' ' . $job->getArguments());
-            $commandString .= ' --bypass-locking';
             $input         = new StringInput($commandString);
 
             if (null === $this->application) {
