@@ -79,6 +79,18 @@ Mautic.showRecentJobLogs = function (e) {
         e.stopPropagation();
     }
 
+    mQuery('.navbar .dropdown.open').each(function () {
+        var $li = mQuery(this);
+        var $toggle = $li.children('a.dropdown-toggle');
+
+        if ($toggle.length && typeof $toggle.dropdown === 'function') {
+            $toggle.dropdown('toggle');
+        } else {
+            $li.removeClass('open');
+            $li.children('.dropdown-menu').hide();
+        }
+    });
+
     const DROPDOWN_ID = 'cronLogsDropdown';
     const failedTranslation = (typeof mauticLang !== 'undefined' && mauticLang['mautic.cron.logs.failed'])
         ? mauticLang['mautic.cron.logs.failed']
@@ -99,7 +111,7 @@ Mautic.showRecentJobLogs = function (e) {
             '<div class="panel panel-default mb-0">' +
             '<div class="panel-heading" style="display:flex; justify-content:space-between; align-items:center;">' +
             '<h6 class="panel-title fw-sb mb-0" style="flex:1;">' + title + '</h6>' +
-            '<a href="javascript:void(0);" class="btn btn-default btn-xs btn-nospin text-danger"' +
+            '<a href="javascript:void(0);" class="btn-xs btn-nospin text-danger"' +
             ' onclick="mQuery(\'#' + DROPDOWN_ID + '\').hide();" title="Close">' +
             '<i class="fa fa-times"></i>' +
             '</a>' +

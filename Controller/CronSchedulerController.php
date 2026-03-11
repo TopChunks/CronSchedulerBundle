@@ -626,24 +626,28 @@ class CronSchedulerController extends AbstractStandardFormController
         );
 
         try {
-            $result = $this->schedulerService->triggerJob($entity);
-
-            if (!$result || empty($result['success'])) {
-                $this->addFlashMessage('mautic.cron_scheduler.error.command.failed', [
-                    '%error%' => $result['output'] ?? 'Unknown error',
-                ]);
-            } else {
-                $this->addFlashMessage(
-                    'mautic.cron_scheduler.success.job.executed',
-                    ['%name%' => $entity->getName()]
-                );
-            }
+            $result = $this->schedulerService->runJobManually($entity);
         } catch (\Exception $e) {
             $this->addFlashMessage(
                 'mautic.cron_scheduler.error.command.failed',
                 ['%error%' => $e->getMessage()]
             );
+
+            return $this->redirect($viewUrl);
         }
+
+        if (!$result || empty($result['success'])) {
+            $this->addFlashMessage('mautic.cron_scheduler.error.command.failed', [
+                '%error%' => isset($result['message']) ? $result['message'] : 'Unknown error',
+            ]);
+
+            return $this->redirect($viewUrl);
+        }
+
+        $this->addFlashMessage(
+            'mautic.cron_scheduler.success.job.executed',
+            ['%name%' => $entity->getName()]
+        );
 
         return $this->redirect($viewUrl);
     }
