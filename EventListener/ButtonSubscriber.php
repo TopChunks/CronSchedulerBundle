@@ -53,7 +53,7 @@ class ButtonSubscriber implements EventSubscriberInterface
 
             $triggerButton = [
                 'attr' => [
-                    'class'       => 'btn btn-default btn-nospin',
+                    'class'       => 'btn btn-primary btn-nospin',
                     'href'        => $this->router->generate(
                         'mautic_cronscheduler_action',
                         ['objectAction' => 'run', 'objectId' => $entity->getId()]
