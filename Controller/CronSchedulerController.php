@@ -632,6 +632,9 @@ class CronSchedulerController extends AbstractStandardFormController
                         'msgVars' => ['%error%' => $e->getMessage()],
                     ],
                 ],
+                'passthroughVars' => [
+                    'route' => false,
+                ],
             ]);
         }
 
@@ -644,6 +647,9 @@ class CronSchedulerController extends AbstractStandardFormController
                         'msgVars' => ['%error%' => isset($result['message']) ? $result['message'] : 'Unknown error'],
                     ],
                 ],
+                'passthroughVars' => [
+                    'route' => false,
+                ],
             ]);
         }
 
@@ -654,6 +660,9 @@ class CronSchedulerController extends AbstractStandardFormController
                     'msg' => 'mautic.cron_scheduler.success.job.executed',
                     'msgVars' => ['%name%' => $entity->getName()],
                 ],
+            ],
+            'passthroughVars' => [
+                'route' => false,
             ],
         ]);
     }
