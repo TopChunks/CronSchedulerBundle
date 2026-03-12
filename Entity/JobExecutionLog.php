@@ -103,7 +103,7 @@ class JobExecutionLog extends CommonEntity
         return $this->completedAt;
     }
 
-    public function setCompletedAt(\DateTimeInterface $completedAt = null)
+    public function setCompletedAt(?\DateTimeInterface $completedAt = null)
     {
         $this->completedAt = $completedAt;
         return $this;

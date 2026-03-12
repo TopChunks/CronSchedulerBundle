@@ -113,9 +113,9 @@ class CronSchedulerModel extends FormModel implements AjaxLookupModelInterface
             'publishUp',
         ];
 
+
         foreach ($triggerFields as $field) {
             if (isset($changes[$field])) {
-
                 //Special case for triggerInterval
                 if ($field == 'triggerInterval') {
                     $oldValue = $changes[$field][0];
@@ -146,12 +146,11 @@ class CronSchedulerModel extends FormModel implements AjaxLookupModelInterface
                     if ($oldDateTime->format('H:i:s') != $newDateTime->format('H:i:s')) {
                         return true;
                     }
+                }else{
+                    return true;
                 }
-
-                return true;
             }
         }
-
         return false;
     }
 
