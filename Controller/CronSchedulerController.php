@@ -606,7 +606,11 @@ class CronSchedulerController extends AbstractStandardFormController
                 ['%error%' => $e->getMessage()]
             );
 
-            return $this->redirect($viewUrl);
+            return $this->postActionRedirect(
+                [
+                    'route' => false,
+                ]
+            );
         }
 
         if (!$result || empty($result['success'])) {
@@ -614,7 +618,11 @@ class CronSchedulerController extends AbstractStandardFormController
                 '%error%' => isset($result['message']) ? $result['message'] : 'Unknown error',
             ]);
 
-            return $this->redirect($viewUrl);
+            return $this->postActionRedirect(
+                [
+                    'route' => false,
+                ]
+            );
         }
 
         $this->addFlash(
@@ -622,7 +630,11 @@ class CronSchedulerController extends AbstractStandardFormController
             ['%name%' => $entity->getName()]
         );
 
-        return $this->redirect($viewUrl);
+        return $this->postActionRedirect(
+            [
+                'route' => false,
+            ]
+        );
     }
 
     public function getModelName()
