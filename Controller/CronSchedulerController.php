@@ -593,48 +593,41 @@ class CronSchedulerController extends AbstractStandardFormController
             return $this->accessDenied();
         }
 
-        $viewUrl = $this->generateUrl(
-            'mautic_cronscheduler_action',
-            ['objectAction' => 'view', 'objectId' => $entity->getId()]
-        );
-
         try {
             $result = $this->get('mautic.cronscheduler.service.scheduler')->runJobManually($entity);
         } catch (\Exception $e) {
-            $this->addFlash(
-                'mautic.cron_scheduler.error.command.failed',
-                ['%error%' => $e->getMessage()]
-            );
-
-            return $this->postActionRedirect(
-                [
-                    'route' => false,
+            return $this->postActionRedirect([
+                'flashes' => [
+                    [
+                        'type' => 'error',
+                        'msg' => 'mautic.cron_scheduler.error.command.failed',
+                        'msgVars' => ['%error%' => $e->getMessage()],
+                    ]
                 ]
-            );
+            ]);
         }
 
         if (!$result || empty($result['success'])) {
-            $this->addFlash('mautic.cron_scheduler.error.command.failed', [
-                '%error%' => isset($result['message']) ? $result['message'] : 'Unknown error',
-            ]);
-
-            return $this->postActionRedirect(
-                [
-                    'route' => false,
+            return $this->postActionRedirect([
+                'flashes' => [
+                    [   
+                        'type' => 'error',
+                        'msg' => 'mautic.cron_scheduler.error.command.failed',
+                        'msgVars' => ['%error%' => isset($result['message']) ? $result['message'] : 'Unknown error'],
+                    ]
                 ]
-            );
+            ]);
         }
 
-        $this->addFlash(
-            'mautic.cron_scheduler.success.job.executed',
-            ['%name%' => $entity->getName()]
-        );
-
-        return $this->postActionRedirect(
-            [
-                'route' => false,
+        return $this->postActionRedirect([
+            'flashes' => [
+                [
+                    'type' => 'notice',
+                    'msg' => 'mautic.cron_scheduler.success.job.executed',
+                    'msgVars' => ['%name%' => $entity->getName()],
+                ]
             ]
-        );
+        ]);
     }
 
     public function getModelName()
