@@ -229,7 +229,7 @@ class CronSchedulerController extends AbstractStandardFormController
                 ]);
             }
 
-            if ($valid && $form->get('buttons')->get('save')->isClicked()) {
+            if ($valid && $this->getFormButton($form, ['buttons', 'save'])->isClicked()) {
                 return $this->postActionRedirect([
                     'returnUrl'       => $this->generateUrl(
                         'mautic_cronscheduler_action',
@@ -322,7 +322,7 @@ class CronSchedulerController extends AbstractStandardFormController
             $valid = false;
             if (!$cancelled = $this->isFormCancelled($form)) {
                 if ($valid = $this->isFormValid($form)) {
-                    $model->saveEntity($entity, $form->get('buttons')->get('save')->isClicked());
+                    $model->saveEntity($entity, $this->getFormButton($form, ['buttons', 'save'])->isClicked());
                     $this->addFlashMessage(
                         'mautic.core.notice.updated',
                         [
@@ -342,7 +342,7 @@ class CronSchedulerController extends AbstractStandardFormController
                 'mauticContent' => 'cronscheduler',
             ];
 
-            if ($cancelled || ($valid && $form->get('buttons')->get('save')->isClicked())) {
+            if ($cancelled || ($valid && $this->getFormButton($form, ['buttons', 'save'])->isClicked())) {
                 $viewParameters = [
                     'objectAction' => 'view',
                     'objectId'     => $entity->getId(),
@@ -618,36 +618,41 @@ class CronSchedulerController extends AbstractStandardFormController
             return $this->accessDenied();
         }
 
-        $viewUrl = $this->generateUrl(
-            'mautic_cronscheduler_action',
-            ['objectAction' => 'view', 'objectId' => $entity->getId()]
-        );
-
         try {
             $result = $this->schedulerService->runJobManually($entity);
         } catch (\Exception $e) {
-            $this->addFlashMessage(
-                'mautic.cron_scheduler.error.command.failed',
-                ['%error%' => $e->getMessage()]
-            );
-
-            return $this->redirect($viewUrl);
+            return $this->postActionRedirect([
+                'flashes' => [
+                    [
+                        'type' => 'error',
+                        'msg' => 'mautic.cron_scheduler.error.command.failed',
+                        'msgVars' => ['%error%' => $e->getMessage()],
+                    ]
+                ]
+            ]);
         }
 
         if (!$result || empty($result['success'])) {
-            $this->addFlashMessage('mautic.cron_scheduler.error.command.failed', [
-                '%error%' => isset($result['message']) ? $result['message'] : 'Unknown error',
+            return $this->postActionRedirect([
+                'flashes' => [
+                    [
+                        'type' => 'error',
+                        'msg' => 'mautic.cron_scheduler.error.command.failed',
+                        'msgVars' => ['%error%' => isset($result['message']) ? $result['message'] : 'Unknown error'],
+                    ]
+                ]
             ]);
-
-            return $this->redirect($viewUrl);
         }
 
-        $this->addFlashMessage(
-            'mautic.cron_scheduler.success.job.executed',
-            ['%name%' => $entity->getName()]
-        );
-
-        return $this->redirect($viewUrl);
+        return $this->postActionRedirect([
+            'flashes' => [
+                [
+                    'type' => 'notice',
+                    'msg' => 'mautic.cron_scheduler.success.job.executed',
+                    'msgVars' => ['%name%' => $entity->getName()],
+                ]
+            ]
+        ]);
     }
 
     public function getModelName(): string

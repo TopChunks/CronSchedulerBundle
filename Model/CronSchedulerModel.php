@@ -146,12 +146,11 @@ class CronSchedulerModel extends FormModel implements AjaxLookupModelInterface
                     if ($oldDateTime->format('H:i:s') != $newDateTime->format('H:i:s')) {
                         return true;
                     }
+                }else{
+                    return true;
                 }
-
-                return true;
             }
         }
-
         return false;
     }
 

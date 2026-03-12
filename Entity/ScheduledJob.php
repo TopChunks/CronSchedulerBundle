@@ -287,7 +287,7 @@ class ScheduledJob extends FormEntity
     /**
      * @param string $triggerHour
      *
-     * @return Event
+     * @return self
      */
     public function setTriggerHour($triggerHour)
     {
@@ -352,7 +352,7 @@ class ScheduledJob extends FormEntity
      *
      * @return self
      */
-    public function setTriggerRestrictedDaysOfWeek(array $triggerRestrictedDaysOfWeek = null)
+    public function setTriggerRestrictedDaysOfWeek(?array $triggerRestrictedDaysOfWeek = null)
     {
         $this->triggerRestrictedDaysOfWeek = $triggerRestrictedDaysOfWeek;
         $this->isChanged('triggerRestrictedDaysOfWeek', $triggerRestrictedDaysOfWeek);

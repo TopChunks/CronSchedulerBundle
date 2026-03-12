@@ -91,8 +91,7 @@ class SchedulerService
         }
 
         try {
-            // Use factory to be compatible with cron-expression v3+
-            $cron = CronExpression::factory($job->getCronNotation());
+            $cron = new CronExpression($job->getCronNotation());
             if (!$cron->isDue($now)) {
                 return false;
             }
@@ -293,8 +292,7 @@ class SchedulerService
         }
 
         try {
-            // Use factory to be compatible with cron-expression v3+
-            $cron = CronExpression::factory($job->getCronNotation());
+            $cron = new CronExpression($job->getCronNotation());
             $next = $cron->getNextRunDate($now);
 
             return $next;
