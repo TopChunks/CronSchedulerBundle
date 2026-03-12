@@ -99,7 +99,7 @@ Mautic.showRecentJobLogs = function (e) {
             '<div class="panel panel-default mb-0">' +
             '<div class="panel-heading" style="display:flex; justify-content:space-between; align-items:center;">' +
             '<h6 class="panel-title fw-sb mb-0" style="flex:1;">' + title + '</h6>' +
-            '<a href="javascript:void(0);" class="btn btn-default btn-xs btn-nospin text-danger"' +
+            '<a href="javascript:void(0);" class="btn btn-nospin text-danger"' +
             ' onclick="mQuery(\'#' + DROPDOWN_ID + '\').hide();" title="Close">' +
             '<i class="ri-close-circle-line"></i>' +
             '</a>' +
