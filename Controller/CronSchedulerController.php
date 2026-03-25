@@ -642,7 +642,11 @@ class CronSchedulerController extends AbstractStandardFormController
                     [
                         'type' => 'error',
                         'msg' => 'mautic.cron_scheduler.error.command.failed',
-                        'msgVars' => isset($result['message']) ? $result['message'] : 'Unknown error',
+                        'msgVars' => [
+                            '%error%' => isset($result['message'])
+                                ? $result['message']
+                                : 'Unknown error',
+                        ],
                     ],
                 ],
                 'passthroughVars' => [
@@ -654,7 +658,7 @@ class CronSchedulerController extends AbstractStandardFormController
         return $this->postActionRedirect([
             'flashes' => [
                 [
-                    'type' => 'error',
+                    'type' => 'notice',
                     'msg' => 'mautic.cron_scheduler.success.job.executed',
                     'msgVars' => ['%name%' => $entity->getName()],
                 ],

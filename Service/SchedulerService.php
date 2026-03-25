@@ -8,6 +8,7 @@ use MauticPlugin\CronSchedulerBundle\Entity\JobExecutionLog;
 use MauticPlugin\CronSchedulerBundle\Entity\ScheduledJob;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Component\Console\Exception\CommandNotFoundException;
+use Symfony\Component\Console\Exception\NamespaceNotFoundException;
 use Mautic\CoreBundle\Command\ModeratedCommand;
 use Symfony\Component\Console\Input\StringInput;
 use Symfony\Component\Console\Output\BufferedOutput;
@@ -60,7 +61,7 @@ class SchedulerService
     {
         if (
             $job->getLastRunAt()
-            && $job->getLastRunAt()->format('Y-m-d H:i') === $now->format('Y-m-d H:i')
+            && intdiv($job->getLastRunAt()->getTimestamp(), 60) === intdiv($now->getTimestamp(), 60)
         ) {
             return false;
         }
@@ -83,10 +84,7 @@ class SchedulerService
     private function isCronDue(ScheduledJob $job, \DateTime $now): bool
     {
         $lastRun = $job->getLastRunAt();
-        if (
-            $lastRun &&
-            $lastRun->format('Y-m-d H:i') === $now->format('Y-m-d H:i')
-        ) {
+        if ($lastRun && intdiv($lastRun->getTimestamp(), 60) === intdiv($now->getTimestamp(), 60)) {
             return false;
         }
 
@@ -321,7 +319,9 @@ class SchedulerService
             return 0;
         }
 
-        $cutoff = $this->dateTimeHelper->getLocalDateTime()->modify(sprintf('-%d days', $retentionDays));
+        // IMPORTANT: DateTimeHelper returns a mutable DateTime instance; cloning prevents
+        // us from drifting the "current time" used by other scheduled jobs in the same run.
+        $cutoff = (clone $this->dateTimeHelper->getLocalDateTime())->modify(sprintf('-%d days', $retentionDays));
 
         /** @var \MauticPlugin\CronSchedulerBundle\Entity\JobExecutionLogRepository $repo */
         $repo = $this->em->getRepository(JobExecutionLog::class);
@@ -451,7 +451,8 @@ class SchedulerService
         $lockedAt = $job->getLockedAt();
 
         if ($lockedAt) {
-            $thirtyMinutesAgo = $this->dateTimeHelper->getLocalDateTime()->modify('-30 minutes');
+            // Clone to avoid mutating DateTimeHelper's internal datetime.
+            $thirtyMinutesAgo = (clone $this->dateTimeHelper->getLocalDateTime())->modify('-30 minutes');
             if ($lockedAt > $thirtyMinutesAgo) {
                 // Job is still locked
                 return false;
@@ -508,7 +509,7 @@ class SchedulerService
             if ($supportsBypass) {
                 $args = trim($args . ' --bypass-locking');
             }
-        } catch (CommandNotFoundException $e) {
+        } catch (CommandNotFoundException|NamespaceNotFoundException $e) {
             throw new \Exception("Command not found: $command");
         }
 
