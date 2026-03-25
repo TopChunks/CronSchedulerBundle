@@ -66,14 +66,14 @@ class SchedulerService
             return false;
         }
 
-        if ($job->getNextRunAt() && $now >= $job->getNextRunAt()) {
-            return true;
+        $nextRunAt = $job->getNextRunAt();
+        if ($nextRunAt instanceof \DateTimeInterface) {
+            return $now >= $nextRunAt;
         }
 
-        //If the next run time is not set, then calculate it and return false. So that the next run time is set and the job is scheduled to run in the next run time.
-        $nextRunAt = $this->calculateNextIntervalRun($job, $job->getLastRunAt() ?? $now);
-        if ($nextRunAt) {
-            $job->setNextRunAt($nextRunAt);
+        $calculatedNext = $this->calculateNextIntervalRun($job, $job->getLastRunAt() ?? $now);
+        if ($calculatedNext instanceof \DateTimeInterface) {
+            $job->setNextRunAt($calculatedNext);
             $this->em->persist($job);
             $this->em->flush();
         }
