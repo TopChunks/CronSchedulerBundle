@@ -7,6 +7,9 @@ use Doctrine\ORM\EntityManager;
 use MauticPlugin\CronSchedulerBundle\Entity\JobExecutionLog;
 use MauticPlugin\CronSchedulerBundle\Entity\ScheduledJob;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
+use Symfony\Component\Console\Exception\CommandNotFoundException;
+use Symfony\Component\Console\Exception\NamespaceNotFoundException;
+use Mautic\CoreBundle\Command\ModeratedCommand;
 use Symfony\Component\Console\Input\StringInput;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\HttpKernel\KernelInterface;
@@ -58,7 +61,7 @@ class SchedulerService
     {
         if (
             $job->getLastRunAt()
-            && $job->getLastRunAt()->format('Y-m-d H:i') === $now->format('Y-m-d H:i')
+            && intdiv($job->getLastRunAt()->getTimestamp(), 60) === intdiv($now->getTimestamp(), 60)
         ) {
             return false;
         }
@@ -81,16 +84,38 @@ class SchedulerService
     private function isCronDue(ScheduledJob $job, \DateTime $now): bool
     {
         $lastRun = $job->getLastRunAt();
-        if (
-            $lastRun &&
-            $lastRun->format('Y-m-d H:i') === $now->format('Y-m-d H:i')
-        ) {
+        if ($lastRun && intdiv($lastRun->getTimestamp(), 60) === intdiv($now->getTimestamp(), 60)) {
+            return false;
+        }
+
+        if (!$this->meetsDayRestrictions($job, $now)) {
+            return false;
+        }
+
+        $cronNotation = trim((string) $job->getCronNotation());
+        if ($cronNotation === '') {
+            return false;
+        }
+
+        $nextRunAt = $job->getNextRunAt();
+        if ($nextRunAt instanceof \DateTimeInterface) {
+            if ($now >= $nextRunAt) {
+                return true;
+            }
+        } else {
+            $calculatedNext = $this->calculateNextCronRun($job, $now);
+            if ($calculatedNext instanceof \DateTimeInterface) {
+                $job->setNextRunAt($calculatedNext);
+                $this->em->persist($job);
+                $this->em->flush();
+            }
+
             return false;
         }
 
         try {
             // Use factory to be compatible with cron-expression v3+
-            $cron = CronExpression::factory($job->getCronNotation());
+            $cron = CronExpression::factory($cronNotation);
             if (!$cron->isDue($now)) {
                 return false;
             }
@@ -101,28 +126,15 @@ class SchedulerService
         }
     }
 
-    private function meetsTimeRestrictions(ScheduledJob $job, \DateTime $now): bool
-    {
-        if ($job->getTriggerHour()) {
-            $nowMinutes =
-                ((int) $now->format('H')) * 60 + (int) $now->format('i');
-
-            $targetMinutes =
-                ((int) $job->getTriggerHour()->format('H')) * 60 +
-                (int) $job->getTriggerHour()->format('i');
-
-            return abs($nowMinutes - $targetMinutes) <= 1;
-        }
-
-        return true;
-    }
-
     /**
      * Check if current day meets day-of-week restrictions.
      */
     private function meetsDayRestrictions(ScheduledJob $job, \DateTime $now): bool
     {
-        $allowedDays = $job->getTriggerRestrictedDaysOfWeek();
+        $allowedDays = array_values(array_filter(array_map(
+            static fn($d) => is_numeric($d) ? (int) $d : null,
+            $job->getTriggerRestrictedDaysOfWeek()
+        ), static fn($d) => null !== $d));
 
         if (empty($allowedDays)) {
             return true;
@@ -137,66 +149,42 @@ class SchedulerService
         return in_array($currentDayOfWeek, $allowedDays, true);
     }
 
-    private function isNthValidDay(ScheduledJob $job, \DateTime $now): bool
-    {
-        $last = $job->getLastRunAt();
-        if (!$last) {
-            return $this->meetsDayRestrictions($job, $now);
-        }
-
-        $allowedDays = $job->getTriggerRestrictedDaysOfWeek();
-        $interval    = $job->getTriggerInterval();
-
-        if (empty($allowedDays) || !$interval) {
-            return true;
-        }
-
-        // Count valid days since last run
-        $validDayCount = 0;
-        $cursor        = clone $last;
-        $cursor->setTime(0, 0, 0); // Start of day
-        $attempts    = 0;
-        $maxAttempts = 366;
-
-        $nowDate = clone $now;
-        $nowDate->setTime(0, 0, 0);
-
-        while ($cursor < $nowDate && $attempts < $maxAttempts) {
-            $cursor->modify('+1 day');
-
-            $dayOfWeek = (int) $cursor->format('w');
-
-            // Handle special value -1 for weekdays
-            if (in_array(-1, $allowedDays, true)) {
-                if ($dayOfWeek >= 1 && $dayOfWeek <= 5) {
-                    ++$validDayCount;
-                }
-            } elseif (in_array($dayOfWeek, $allowedDays, true)) {
-                ++$validDayCount;
-            }
-            ++$attempts;
-        }
-
-        return $validDayCount >= $interval && $this->meetsDayRestrictions($job, $now);
-    }
-
     public function runJobManually(ScheduledJob $job)
     {
         try {
-            $commandString = trim($job->getCommand() . ' ' . $job->getArguments());
-            $input         = new StringInput($commandString);
+            $application = $this->getApplication();
+            $args         = trim((string) $job->getArguments());
 
-            if (null === $this->application) {
-                $this->application = new Application($this->kernel);
-                $this->application->setAutoExit(false);
-                $this->application->setCatchExceptions(true);
+            $commands = $this->splitCommands((string) $job->getCommand());
+
+            if (count($commands) === 1) {
+                $commandString = $this->buildSingleCommandString($commands[0], $args, $application);
+                $input         = new StringInput($commandString);
+                $output        = new BufferedOutput();
+
+                $exitCode     = $application->run($input, $output);
+                $outputString = $output->fetch();
+                $success      = (0 === $exitCode);
+            } else {
+                $success      = true;
+                $exitCode     = 0;
+                $outputString = '';
+
+                foreach ($commands as $command) {
+                    $commandString = $this->buildSingleCommandString($command, $args, $application);
+                    $input         = new StringInput($commandString);
+                    $output        = new BufferedOutput();
+
+                    $exitCode     = $application->run($input, $output);
+                    $chunkOutput  = $output->fetch();
+                    $outputString .= $chunkOutput;
+
+                    if (0 !== $exitCode) {
+                        $success = false;
+                        break;
+                    }
+                }
             }
-
-            $output = new BufferedOutput();
-
-            $exitCode     = $this->application->run($input, $output);
-            $outputString = $output->fetch();
-            $success      = (0 === $exitCode);
 
             return [
                 'success'  => $success,
@@ -238,20 +226,28 @@ class SchedulerService
         $outputString = '';
 
         try {
-            $commandString = trim($job->getCommand() . ' ' . $job->getArguments());
-            $input         = new StringInput($commandString);
+            $application = $this->getApplication();
+            $args        = trim((string) $job->getArguments());
+            $commands    = $this->splitCommands((string) $job->getCommand());
 
-            if (null === $this->application) {
-                $this->application = new Application($this->kernel);
-                $this->application->setAutoExit(false);
-                $this->application->setCatchExceptions(true);
+            $outputString = '';
+            $exitCode     = 0;
+
+            $success = true;
+
+            foreach ($commands as $command) {
+                $commandString = $this->buildSingleCommandString($command, $args, $application);
+                $input         = new StringInput($commandString);
+                $output        = new BufferedOutput();
+
+                $exitCode     = $application->run($input, $output);
+                $outputString .= $output->fetch();
+
+                if (0 !== $exitCode) {
+                    $success = false;
+                    break;
+                }
             }
-
-            $output = new BufferedOutput();
-
-            $exitCode     = $this->application->run($input, $output);
-            $outputString = $output->fetch();
-            $success      = (0 === $exitCode);
 
             $completedAt = $this->dateTimeHelper->getLocalDateTime();
             $duration    = microtime(true) - $startTime;
@@ -323,7 +319,9 @@ class SchedulerService
             return 0;
         }
 
-        $cutoff = $this->dateTimeHelper->getLocalDateTime()->modify(sprintf('-%d days', $retentionDays));
+        // IMPORTANT: DateTimeHelper returns a mutable DateTime instance; cloning prevents
+        // us from drifting the "current time" used by other scheduled jobs in the same run.
+        $cutoff = (clone $this->dateTimeHelper->getLocalDateTime())->modify(sprintf('-%d days', $retentionDays));
 
         /** @var \MauticPlugin\CronSchedulerBundle\Entity\JobExecutionLogRepository $repo */
         $repo = $this->em->getRepository(JobExecutionLog::class);
@@ -353,13 +351,14 @@ class SchedulerService
 
     private function calculateNextCronRun(ScheduledJob $job, \DateTime $now): ?\DateTime
     {
-        if (!$job->getCronNotation()) {
+        $cronNotation = trim((string) $job->getCronNotation());
+        if ($cronNotation === '') {
             return null;
         }
 
         try {
             // Use factory to be compatible with cron-expression v3+
-            $cron = CronExpression::factory($job->getCronNotation());
+            $cron = CronExpression::factory($cronNotation);
             $next = $cron->getNextRunDate($now);
 
             return $next;
@@ -452,7 +451,8 @@ class SchedulerService
         $lockedAt = $job->getLockedAt();
 
         if ($lockedAt) {
-            $thirtyMinutesAgo = $this->dateTimeHelper->getLocalDateTime()->modify('-30 minutes');
+            // Clone to avoid mutating DateTimeHelper's internal datetime.
+            $thirtyMinutesAgo = (clone $this->dateTimeHelper->getLocalDateTime())->modify('-30 minutes');
             if ($lockedAt > $thirtyMinutesAgo) {
                 // Job is still locked
                 return false;
@@ -463,5 +463,56 @@ class SchedulerService
         $this->em->flush();
 
         return true;
+    }
+
+    private function getApplication(): Application
+    {
+        if (null === $this->application) {
+            $this->application = new Application($this->kernel);
+            $this->application->setAutoExit(false);
+            $this->application->setCatchExceptions(true);
+        }
+
+        return $this->application;
+    }
+
+    /**
+     * Split a potentially pipe-separated command string.
+     *
+     * Example: "mautic:campaigns:rebuild|mautic:campaigns:update"
+     * becomes ["mautic:campaigns:rebuild", "mautic:campaigns:update"].
+     *
+     * @return list<string>
+     */
+    private function splitCommands(string $command): array
+    {
+        $parts = array_filter(array_map(static fn(string $c): string => trim($c), explode('|', $command)));
+
+        // Symfony console supports abbreviated commands; keep as-is (do not expand),
+        // but we still need to ensure "cmd|cmd" is handled as two commands.
+        return array_values($parts);
+    }
+
+    private function buildSingleCommandString(string $command, string $args, Application $application): string
+    {
+        if (str_contains($args, '--bypass-locking')) {
+            return trim($command . ' ' . $args);
+        }
+
+        try {
+            $resolved    = $application->find($command);
+
+            $supportsBypass =
+                $resolved instanceof ModeratedCommand
+                || $resolved->getDefinition()->hasOption('bypass-locking');
+
+            if ($supportsBypass) {
+                $args = trim($args . ' --bypass-locking');
+            }
+        } catch (CommandNotFoundException | NamespaceNotFoundException $e) {
+            throw new \Exception("Command not found: $command");
+        }
+
+        return trim($command . ' ' . $args);
     }
 }
