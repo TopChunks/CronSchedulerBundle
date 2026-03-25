@@ -90,9 +90,34 @@ class SchedulerService
             return false;
         }
 
+        if (!$this->meetsDayRestrictions($job, $now)) {
+            return false;
+        }
+
+        $cronNotation = trim((string) $job->getCronNotation());
+        if ($cronNotation === '') {
+            return false;
+        }
+
+        $nextRunAt = $job->getNextRunAt();
+        if ($nextRunAt instanceof \DateTimeInterface) {
+            if ($now >= $nextRunAt) {
+                return true;
+            }
+        } else {
+            $calculatedNext = $this->calculateNextCronRun($job, $now);
+            if ($calculatedNext instanceof \DateTimeInterface) {
+                $job->setNextRunAt($calculatedNext);
+                $this->em->persist($job);
+                $this->em->flush();
+            }
+
+            return false;
+        }
+
         try {
             // Use factory to be compatible with cron-expression v3+
-            $cron = CronExpression::factory($job->getCronNotation());
+            $cron = CronExpression::factory($cronNotation);
             if (!$cron->isDue($now)) {
                 return false;
             }
@@ -108,7 +133,10 @@ class SchedulerService
      */
     private function meetsDayRestrictions(ScheduledJob $job, \DateTime $now): bool
     {
-        $allowedDays = $job->getTriggerRestrictedDaysOfWeek();
+        $allowedDays = array_values(array_filter(array_map(
+            static fn($d) => is_numeric($d) ? (int) $d : null,
+            $job->getTriggerRestrictedDaysOfWeek()
+        ), static fn($d) => null !== $d));
 
         if (empty($allowedDays)) {
             return true;
@@ -323,13 +351,14 @@ class SchedulerService
 
     private function calculateNextCronRun(ScheduledJob $job, \DateTime $now): ?\DateTime
     {
-        if (!$job->getCronNotation()) {
+        $cronNotation = trim((string) $job->getCronNotation());
+        if ($cronNotation === '') {
             return null;
         }
 
         try {
             // Use factory to be compatible with cron-expression v3+
-            $cron = CronExpression::factory($job->getCronNotation());
+            $cron = CronExpression::factory($cronNotation);
             $next = $cron->getNextRunDate($now);
 
             return $next;
@@ -456,7 +485,7 @@ class SchedulerService
      */
     private function splitCommands(string $command): array
     {
-        $parts = array_filter(array_map(static fn (string $c): string => trim($c), explode('|', $command)));
+        $parts = array_filter(array_map(static fn(string $c): string => trim($c), explode('|', $command)));
 
         // Symfony console supports abbreviated commands; keep as-is (do not expand),
         // but we still need to ensure "cmd|cmd" is handled as two commands.
