@@ -126,16 +126,39 @@ class SchedulerService
     public function runJobManually(ScheduledJob $job)
     {
         try {
-            $commandString = $this->buildCommandString($job);
-            $input         = new StringInput($commandString);
-
             $application = $this->getApplication();
+            $args         = trim((string) $job->getArguments());
 
-            $output = new BufferedOutput();
+            $commands = $this->splitCommands((string) $job->getCommand());
 
-            $exitCode     = $application->run($input, $output);
-            $outputString = $output->fetch();
-            $success      = (0 === $exitCode);
+            if (count($commands) === 1) {
+                $commandString = $this->buildSingleCommandString($commands[0], $args, $application);
+                $input         = new StringInput($commandString);
+                $output        = new BufferedOutput();
+
+                $exitCode     = $application->run($input, $output);
+                $outputString = $output->fetch();
+                $success      = (0 === $exitCode);
+            } else {
+                $success      = true;
+                $exitCode     = 0;
+                $outputString = '';
+
+                foreach ($commands as $command) {
+                    $commandString = $this->buildSingleCommandString($command, $args, $application);
+                    $input         = new StringInput($commandString);
+                    $output        = new BufferedOutput();
+
+                    $exitCode     = $application->run($input, $output);
+                    $chunkOutput  = $output->fetch();
+                    $outputString .= $chunkOutput;
+
+                    if (0 !== $exitCode) {
+                        $success = false;
+                        break;
+                    }
+                }
+            }
 
             return [
                 'success'  => $success,
@@ -177,16 +200,28 @@ class SchedulerService
         $outputString = '';
 
         try {
-            $commandString = $this->buildCommandString($job);
-            $input         = new StringInput($commandString);
-
             $application = $this->getApplication();
+            $args        = trim((string) $job->getArguments());
+            $commands    = $this->splitCommands((string) $job->getCommand());
 
-            $output = new BufferedOutput();
+            $outputString = '';
+            $exitCode     = 0;
 
-            $exitCode     = $application->run($input, $output);
-            $outputString = $output->fetch();
-            $success      = (0 === $exitCode);
+            $success = true;
+
+            foreach ($commands as $command) {
+                $commandString = $this->buildSingleCommandString($command, $args, $application);
+                $input         = new StringInput($commandString);
+                $output        = new BufferedOutput();
+
+                $exitCode     = $application->run($input, $output);
+                $outputString .= $output->fetch();
+
+                if (0 !== $exitCode) {
+                    $success = false;
+                    break;
+                }
+            }
 
             $completedAt = $this->dateTimeHelper->getLocalDateTime();
             $duration    = microtime(true) - $startTime;
@@ -411,17 +446,30 @@ class SchedulerService
         return $this->application;
     }
 
-    private function buildCommandString(ScheduledJob $job): string
+    /**
+     * Split a potentially pipe-separated command string.
+     *
+     * Example: "mautic:campaigns:rebuild|mautic:campaigns:update"
+     * becomes ["mautic:campaigns:rebuild", "mautic:campaigns:update"].
+     *
+     * @return list<string>
+     */
+    private function splitCommands(string $command): array
     {
-        $command = trim($job->getCommand());
-        $args    = trim((string) $job->getArguments());
+        $parts = array_filter(array_map(static fn (string $c): string => trim($c), explode('|', $command)));
 
+        // Symfony console supports abbreviated commands; keep as-is (do not expand),
+        // but we still need to ensure "cmd|cmd" is handled as two commands.
+        return array_values($parts);
+    }
+
+    private function buildSingleCommandString(string $command, string $args, Application $application): string
+    {
         if (str_contains($args, '--bypass-locking')) {
             return trim($command . ' ' . $args);
         }
 
         try {
-            $application = $this->getApplication();
             $resolved    = $application->find($command);
 
             $supportsBypass =
