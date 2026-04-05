@@ -71,13 +71,17 @@ class SchedulerService
             return $now >= $nextRunAt;
         }
 
-        $calculatedNext = $this->calculateNextIntervalRun($job, $job->getLastRunAt() ?? $now);
-        if ($calculatedNext instanceof \DateTimeInterface) {
-            $job->setNextRunAt($calculatedNext);
+        if (null !== $job->getNextRunAt()) {
+            return false;
+        }
+
+        $nextRunAt = $this->calculateNextIntervalRun($job, $job->getLastRunAt() ?? $now);
+
+        if ($nextRunAt) {
+            $job->setNextRunAt($nextRunAt);
             $this->em->persist($job);
             $this->em->flush();
         }
-
         return false;
     }
 
