@@ -21,6 +21,7 @@ class CommandCollectorPass implements CompilerPassInterface
             'mautic:marketplace:install',
             'mautic:marketplace:list',
             'mautic:marketplace:remove',
+            'mautic:jobs:trigger',
         ];
 
         if (!$container->has($serviceId)) {

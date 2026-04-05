@@ -70,14 +70,17 @@ class SchedulerService
             return true;
         }
 
-        //If the next run time is not set, then calculate it and return false. So that the next run time is set and the job is scheduled to run in the next run time.
+        if (null !== $job->getNextRunAt()) {
+            return false;
+        }
+
         $nextRunAt = $this->calculateNextIntervalRun($job, $job->getLastRunAt() ?? $now);
+
         if ($nextRunAt) {
             $job->setNextRunAt($nextRunAt);
             $this->em->persist($job);
             $this->em->flush();
         }
-
         return false;
     }
 
@@ -509,7 +512,7 @@ class SchedulerService
             if ($supportsBypass) {
                 $args = trim($args . ' --bypass-locking');
             }
-        } catch (CommandNotFoundException|NamespaceNotFoundException $e) {
+        } catch (CommandNotFoundException | NamespaceNotFoundException $e) {
             throw new \Exception("Command not found: $command");
         }
 
