@@ -87,34 +87,34 @@ Mautic.showRecentJobLogs = function (e) {
         const title = (typeof mauticLang !== 'undefined' && mauticLang['mautic.cron.logs.title'])
             ? mauticLang['mautic.cron.logs.title']
             : 'Job execution logs';
-        
+
         const failedTranslation = (typeof mauticLang !== 'undefined' && mauticLang['mautic.cron.logs.failed'])
             ? mauticLang['mautic.cron.logs.failed']
             : 'Failed to load logs';
 
         $dropdown = mQuery(
             '<ul id="' + DROPDOWN_ID + '"' +
-                ' class="dropdown-menu dropdown-menu-right dropdown-menu-lg"' +
-                ' style="width:360px; position:fixed; top:60px; right:15px; z-index:1000;">' +
-                '<li>' +
-                    '<div class="panel panel-default mb-0">' +
-                        '<div class="panel-heading">' +
-                            '<div class="panel-title">' +
-                                '<h6 class="fw-sb">' + title +
-                                    '<a href="javascript:void(0);" class="btn btn-default btn-xs btn-nospin pull-right text-danger"' +
-                                       ' onclick="mQuery(\'#' + DROPDOWN_ID + '\').hide();">' +
-                                        '<i class="fa fa-times"></i>' +
-                                    '</a>' +
-                                '</h6>' +
-                            '</div>' +
-                        '</div>' +
-                        '<div class="pt-0 pb-xs pl-0 pr-0">' +
-                            '<div class="scroll-content slimscroll" id="cronLogsContainer" style="height:250px;">' +
-                                '<div class="spinner text-center"><i class="fa fa-spinner fa-spin"></i></div>' +
-                            '</div>' +
-                        '</div>' +
-                    '</div>' +
-                '</li>' +
+            ' class="dropdown-menu dropdown-menu-right dropdown-menu-lg"' +
+            ' style="width:360px; position:fixed; top:60px; right:15px; z-index:1000;">' +
+            '<li>' +
+            '<div class="panel panel-default mb-0">' +
+            '<div class="panel-heading">' +
+            '<div class="panel-title">' +
+            '<h6 class="fw-sb">' + title +
+            '<a href="javascript:void(0);" class="btn btn-default btn-xs btn-nospin pull-right text-danger"' +
+            ' onclick="mQuery(\'#' + DROPDOWN_ID + '\').hide();">' +
+            '<i class="fa fa-times"></i>' +
+            '</a>' +
+            '</h6>' +
+            '</div>' +
+            '</div>' +
+            '<div class="pt-0 pb-xs pl-0 pr-0">' +
+            '<div class="scroll-content slimscroll" id="cronLogsContainer" style="height:250px;">' +
+            '<div class="spinner text-center"><i class="fa fa-spinner fa-spin"></i></div>' +
+            '</div>' +
+            '</div>' +
+            '</div>' +
+            '</li>' +
             '</ul>'
         );
 

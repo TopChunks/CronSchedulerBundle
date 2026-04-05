@@ -82,15 +82,18 @@ class SchedulerService
         if ($job->getNextRunAt() && $now >= $job->getNextRunAt()) {
             return true;
         }
-        
-        //If the next run time is not set, then calculate it and return false. So that the next run time is set and the job is scheduled to run in the next run time.
+
+        if (null !== $job->getNextRunAt()) {
+            return false;
+        }
+
         $nextRunAt = $this->calculateNextIntervalRun($job, $job->getLastRunAt() ?? $now);
-        if($nextRunAt) {
+
+        if ($nextRunAt) {
             $job->setNextRunAt($nextRunAt);
             $this->em->persist($job);
             $this->em->flush();
         }
-
         return false;
     }
 
@@ -398,7 +401,7 @@ class SchedulerService
         $normalizedUnit = $this->normalizeIntervalUnit($unit);
         $next->modify(sprintf('+%d %s', $interval, $normalizedUnit));
 
-        if($unit === 'i' || $unit === 'h') {
+        if ($unit === 'i' || $unit === 'h') {
             return $next;
         }
 
@@ -407,12 +410,12 @@ class SchedulerService
             if ($job->getTriggerHour()) {
                 $time = $job->getTriggerHour();
                 $next->setTime((int) $time->format('H'), (int) $time->format('i'));
-            }else{
+            } else {
                 $next->setTime(0, 0, 0);
             }
         }
 
-        if(!empty($allowedDays)){
+        if (!empty($allowedDays)) {
             $maxAttempts   = 366; // Safety limit
             $attempts      = 0;
 
