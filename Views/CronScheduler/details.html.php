@@ -150,6 +150,13 @@ function getTriggerIntervalHumanReadableLabel($view, ScheduledJob $entity): stri
                     <dt><?php echo $view['translator']->trans('mautic.cron_scheduler.form.priority'); ?>:</dt>
                     <dd><?php echo $view->escape($entity->getPriority()); ?></dd>
 
+                    <dt><?php echo $view['translator']->trans('mautic.cron_scheduler.form.send_failure_alert'); ?>:</dt>
+                    <dd>
+                        <?php echo $entity->getSendFailureAlert()
+                            ? $view['translator']->trans('mautic.core.form.yes')
+                            : $view['translator']->trans('mautic.core.form.no'); ?>
+                    </dd>
+
                     <?php if ($entity->getTriggerMode() === 'cron'): ?>
                         <dt><?php echo $view['translator']->trans('mautic.cron_scheduler.cron.notation'); ?>:</dt>
                         <dd><?php echo $view->escape($entity->getCronNotation()); ?></dd>

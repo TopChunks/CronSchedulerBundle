@@ -77,6 +77,11 @@ class ScheduledJob extends FormEntity
      */
     private $priority = 0;
 
+    /**
+     * @var bool
+     */
+    private $sendFailureAlert = false;
+
     public static function loadMetadata(MappingClassMetadata $metadata)
     {
         $builder = new ClassMetadataBuilder($metadata);
@@ -124,6 +129,10 @@ class ScheduledJob extends FormEntity
         $builder->createField('cronNotation', Types::TEXT)->columnName('cron_notation')->nullable()->build();
         $builder->createField('systemCron', Types::BOOLEAN)->columnName('system_cron')->build();
         $builder->createField('priority', Types::INTEGER)->columnName('priority')->build();
+        $builder->createField('sendFailureAlert', Types::BOOLEAN)
+            ->columnName('send_failure_alert')
+            ->nullable()
+            ->build();
         $builder->addPublishDates();
         $builder->addCategory();
 
@@ -499,5 +508,16 @@ class ScheduledJob extends FormEntity
     {
         $this->isChanged('priority', $priority);
         $this->priority = $priority;
+    }
+
+    public function getSendFailureAlert()
+    {
+        return (bool) $this->sendFailureAlert;
+    }
+
+    public function setSendFailureAlert($sendFailureAlert)
+    {
+        $this->isChanged('sendFailureAlert', (bool) $sendFailureAlert);
+        $this->sendFailureAlert = (bool) $sendFailureAlert;
     }
 }

@@ -4,16 +4,21 @@ namespace MauticPlugin\CronSchedulerBundle\Service;
 
 use Cron\CronExpression;
 use Doctrine\ORM\EntityManager;
+use Mautic\CoreBundle\Helper\DateTimeHelper;
 use MauticPlugin\CronSchedulerBundle\Entity\JobExecutionLog;
 use MauticPlugin\CronSchedulerBundle\Entity\ScheduledJob;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Exception\ExceptionInterface;
+use Symfony\Component\Console\Input\InputDefinition;
 use Symfony\Component\Console\Input\StringInput;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\HttpKernel\KernelInterface;
-use Mautic\CoreBundle\Helper\DateTimeHelper;
 
 class SchedulerService
 {
+    public const LOCKED_MESSAGE = 'Job is locked by another process';
+
     /**
      * @var EntityManager
      */
@@ -33,11 +38,17 @@ class SchedulerService
      */
     private $dateTimeHelper;
 
-    public function __construct(EntityManager $em, KernelInterface $kernel)
+    /**
+     * @var FailureAlertService
+     */
+    private $failureAlertService;
+
+    public function __construct(EntityManager $em, KernelInterface $kernel, FailureAlertService $failureAlertService)
     {
-        $this->em     = $em;
-        $this->kernel = $kernel;
-        $this->dateTimeHelper = new DateTimeHelper(null, null, 'local');
+        $this->em                  = $em;
+        $this->kernel              = $kernel;
+        $this->dateTimeHelper      = new DateTimeHelper(null, null, 'local');
+        $this->failureAlertService = $failureAlertService;
     }
 
     public function isDue(ScheduledJob $job): bool
@@ -200,21 +211,23 @@ class SchedulerService
 
     public function runJobManually(ScheduledJob $job)
     {
+        $startTime = microtime(true);
+        $startedAt = $this->dateTimeHelper->getLocalDateTime();
+
         try {
-            $commandString = trim($job->getCommand() . ' ' . $job->getArguments());
-            $input         = new StringInput($commandString);
-
-            if (null === $this->application) {
-                $this->application = new Application($this->kernel);
-                $this->application->setAutoExit(false);
-                $this->application->setCatchExceptions(true);
-            }
-
-            $output = new BufferedOutput();
-
-            $exitCode     = $this->application->run($input, $output);
-            $outputString = $output->fetch();
+            $result       = $this->runJobCommand($job);
+            $exitCode     = $result['exitCode'];
+            $outputString = $result['output'];
             $success      = (0 === $exitCode);
+
+            if (!$success) {
+                $this->failureAlertService->send($job, null, [
+                    'exitCode'   => $exitCode,
+                    'failReason' => $outputString ?: 'Command failed',
+                    'duration'   => microtime(true) - $startTime,
+                    'executedAt' => $startedAt,
+                ]);
+            }
 
             return [
                 'success'  => $success,
@@ -222,6 +235,12 @@ class SchedulerService
                 'message'  => $outputString,
             ];
         } catch (\Exception $e) {
+            $this->failureAlertService->send($job, null, [
+                'failReason' => $e->getMessage(),
+                'duration'   => microtime(true) - $startTime,
+                'executedAt' => $startedAt,
+            ]);
+
             throw new \Exception("Failed to run job '{$job->getName()}': " . $e->getMessage());
         }
     }
@@ -237,7 +256,7 @@ class SchedulerService
         if (!$this->acquireLock($job)) {
             return [
                 'success' => false,
-                'message' => 'Job is locked by another process',
+                'message' => self::LOCKED_MESSAGE,
             ];
         }
 
@@ -254,21 +273,12 @@ class SchedulerService
 
         $exitCode     = null;
         $outputString = '';
+        $failedLog    = null;
 
         try {
-            $commandString = trim($job->getCommand() . ' ' . $job->getArguments());
-            $input         = new StringInput($commandString);
-
-            if (null === $this->application) {
-                $this->application = new Application($this->kernel);
-                $this->application->setAutoExit(false);
-                $this->application->setCatchExceptions(true);
-            }
-
-            $output = new BufferedOutput();
-
-            $exitCode     = $this->application->run($input, $output);
-            $outputString = $output->fetch();
+            $result       = $this->runJobCommand($job);
+            $exitCode     = $result['exitCode'];
+            $outputString = $result['output'];
             $success      = (0 === $exitCode);
 
             $completedAt = $this->dateTimeHelper->getLocalDateTime();
@@ -293,6 +303,10 @@ class SchedulerService
             }
             $this->em->persist($job);
 
+            if ($log && !$success) {
+                $failedLog = $log;
+            }
+
             return [
                 'success'  => $success,
                 'exitCode' => $exitCode,
@@ -308,13 +322,10 @@ class SchedulerService
                 $log->setIsSuccess(false);
                 $log->setErrorMessage($e->getMessage());
                 $log->setDuration($duration);
+                $log->setExitCode(null !== $exitCode ? $exitCode : 1);
             }
 
-            if ($log && null !== $exitCode) {
-                $log->setExitCode($exitCode);
-            }
-
-            if ($outputString) {
+            if ($log && $outputString) {
                 $log->setOutput($outputString);
             }
 
@@ -328,10 +339,18 @@ class SchedulerService
             $job->setNextRunAt($nextRunAt);
             $this->em->persist($job);
 
+            if ($log) {
+                $failedLog = $log;
+            }
+
             throw new \Exception("Failed to trigger job '{$job->getName()}': " . $e->getMessage());
         } finally {
             $job->setLockedAt(null);
             $this->em->flush();
+
+            if ($failedLog) {
+                $this->failureAlertService->send($job, $failedLog);
+            }
         }
     }
 
@@ -458,6 +477,92 @@ class SchedulerService
             default:
                 throw new \InvalidArgumentException("Invalid interval unit: $unit");
         }
+    }
+
+    /**
+     * Run the job command and return its exit code and output.
+     *
+     * Arguments are validated against the command's own options only, not
+     * Symfony's global console options (--env, --no-debug, --quiet, etc.).
+     *
+     * @return array{exitCode: int, output: string}
+     */
+    private function runJobCommand(ScheduledJob $job): array
+    {
+        $application = $this->getConsoleApplication();
+        $commandName = trim((string) $job->getCommand());
+
+        if ('' === $commandName) {
+            throw new \RuntimeException('Job command is empty.');
+        }
+
+        $command = $application->find($commandName);
+        $this->assertJobArgumentsAreValid($command, $job->getArguments());
+
+        $input = new StringInput(trim($commandName.' '.$job->getArguments()));
+        $input->setInteractive(false);
+
+        $output   = new BufferedOutput();
+        $exitCode = $application->run($input, $output);
+
+        return [
+            'exitCode' => $exitCode,
+            'output'   => $output->fetch(),
+        ];
+    }
+
+    private function getConsoleApplication(): Application
+    {
+        if (null === $this->application) {
+            $this->application = new Application($this->kernel);
+            $this->application->setAutoExit(false);
+            $this->application->setCatchExceptions(false);
+        }
+
+        return $this->application;
+    }
+
+    /**
+     * Reject flags the command does not define, including Symfony globals like --env.
+     */
+    private function assertJobArgumentsAreValid(Command $command, ?string $arguments): void
+    {
+        $input = new StringInput(trim((string) $arguments));
+
+        try {
+            $input->bind($this->getCommandOnlyDefinition($command));
+            $input->validate();
+        } catch (ExceptionInterface $e) {
+            throw new \RuntimeException('Invalid job arguments: '.$e->getMessage(), 0, $e);
+        }
+    }
+
+    /**
+     * Command definition without Application-level options/arguments.
+     *
+     * Symfony merges --env, --no-debug, --help, etc. onto every command, so
+     * those flags would otherwise be accepted and silently ignored.
+     */
+    private function getCommandOnlyDefinition(Command $command): InputDefinition
+    {
+        $applicationDefinition = $this->getConsoleApplication()->getDefinition();
+        $native                = new InputDefinition();
+
+        foreach ($command->getDefinition()->getArguments() as $argument) {
+            if ($applicationDefinition->hasArgument($argument->getName())) {
+                continue;
+            }
+            $native->addArgument($argument);
+        }
+
+        foreach ($command->getDefinition()->getOptions() as $option) {
+            if ($applicationDefinition->hasOption($option->getName())) {
+                continue;
+            }
+            $native->addOption($option);
+        }
+
+        return $native;
     }
 
     /**

@@ -2,7 +2,10 @@
 
 namespace MauticPlugin\CronSchedulerBundle;
 
+use Doctrine\DBAL\Schema\Schema;
+use Mautic\CoreBundle\Factory\MauticFactory;
 use Mautic\PluginBundle\Bundle\PluginBundleBase;
+use Mautic\PluginBundle\Entity\Plugin;
 use MauticPlugin\CronSchedulerBundle\DependencyInjection\Compiler\CommandCollectorPass;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 

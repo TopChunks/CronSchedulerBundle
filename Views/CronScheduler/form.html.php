@@ -126,6 +126,7 @@ $hideTriggerMode = false;
 <div class="col-md-3 bg-white height-auto bdr-l">
   <div class="pr-lg pl-lg pt-md pb-md">
     <?php echo $view['form']->row($form['isPublished']); ?>
+    <?php echo $view['form']->row($form['sendFailureAlert']); ?>
     <?php echo $view['form']->row($form['priority']); ?>
     <?php echo $view['form']->row($form['category']); ?>
     <?php echo $view['form']->row($form['publishUp']); ?>

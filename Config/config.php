@@ -45,7 +45,10 @@ return [
                 ],
             ],
             'mautic.cronscheduler.form.type.config' => [
-                'class' => \MauticPlugin\CronSchedulerBundle\Form\Type\ConfigType::class,
+                'class'     => \MauticPlugin\CronSchedulerBundle\Form\Type\ConfigType::class,
+                'arguments' => [
+                    'mautic.sms.transport_chain',
+                ],
             ],
         ],
         'events' => [
@@ -63,6 +66,12 @@ return [
                 'class'     => \MauticPlugin\CronSchedulerBundle\EventListener\InstallSubscriber::class,
                 'arguments' => [
                     '@doctrine.orm.entity_manager',
+                ],
+            ],
+            'mautic.cronscheduler.webhook.subscriber' => [
+                'class'     => \MauticPlugin\CronSchedulerBundle\EventListener\WebhookSubscriber::class,
+                'arguments' => [
+                    'mautic.webhook.model.webhook',
                 ],
             ],
         ],
@@ -97,6 +106,21 @@ return [
                 'arguments' => [
                     '@doctrine.orm.entity_manager',
                     '@kernel',
+                    'mautic.cronscheduler.service.failure_alert',
+                ],
+            ],
+            'mautic.cronscheduler.service.failure_alert' => [
+                'class'     => \MauticPlugin\CronSchedulerBundle\Service\FailureAlertService::class,
+                'arguments' => [
+                    'mautic.helper.core_parameters',
+                    'mautic.helper.mailer',
+                    'mautic.email.model.email',
+                    'event_dispatcher',
+                    'monolog.logger.mautic',
+                    'router',
+                    'mautic.sms.model.sms',
+                    'mautic.sms.transport_chain',
+                    'service_container',
                 ],
             ],
             'mautic.cron_scheduler.command_provider' => [
@@ -106,6 +130,12 @@ return [
         ],
     ],
     'parameters' => [
-        'log_retention_days' => 25,
+        'log_retention_days'              => 25,
+        'failure_alert_channel'           => 'email',
+        'failure_alert_email_template_id'    => null,
+        'failure_alert_sms_template_id'      => null,
+        'failure_alert_whatsapp_template_id' => null,
+        'failure_alert_emails'            => '',
+        'failure_alert_phone_numbers'     => '',
     ],
 ];
