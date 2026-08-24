@@ -67,6 +67,7 @@ class ConfigType extends AbstractType
             'attr'        => [
                 'class'   => 'form-control',
                 'tooltip' => 'mautic.cron_scheduler.alert.channel.tooltip',
+                'onchange' => 'Mautic.switchFormFieldVisibilty(\'config\');',
             ],
         ]);
 

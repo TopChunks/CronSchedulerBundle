@@ -212,7 +212,10 @@ class FailureAlertService
      */
     private function sendEmail(array $tokens): void
     {
-        $templateId = $this->normalizeId($this->coreParametersHelper->get('failure_alert_email_template'));
+        $templateId = $this->normalizeId(
+            $this->coreParametersHelper->get('failure_alert_email_template')
+            ?? $this->coreParametersHelper->get('failure_alert_email_template_id')
+        );
         $emails     = $this->splitList((string) $this->coreParametersHelper->get('failure_alert_emails', ''));
 
         if (!$templateId || empty($emails)) {
@@ -241,7 +244,10 @@ class FailureAlertService
      */
     private function sendSms(array $tokens): void
     {
-        $templateId = $this->normalizeId($this->coreParametersHelper->get('failure_alert_sms_template'));
+        $templateId = $this->normalizeId(
+            $this->coreParametersHelper->get('failure_alert_sms_template')
+            ?? $this->coreParametersHelper->get('failure_alert_sms_template_id')
+        );
         $numbers    = $this->splitList((string) $this->coreParametersHelper->get('failure_alert_phone_numbers', ''));
 
         if (!$templateId || empty($numbers)) {
@@ -285,7 +291,10 @@ class FailureAlertService
             return;
         }
 
-        $templateId = $this->normalizeId($this->coreParametersHelper->get('failure_alert_whatsapp_template'));
+        $templateId = $this->normalizeId(
+            $this->coreParametersHelper->get('failure_alert_whatsapp_template')
+            ?? $this->coreParametersHelper->get('failure_alert_whatsapp_template_id')
+        );
         $numbers    = $this->splitList((string) $this->coreParametersHelper->get('failure_alert_phone_numbers', ''));
 
         if (!$templateId || empty($numbers)) {
