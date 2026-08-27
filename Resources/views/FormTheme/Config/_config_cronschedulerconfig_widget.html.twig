@@ -1,14 +1,52 @@
 {% block _config_cronschedulerconfig_widget %}
-<div class="row">
-    <div class="panel panel-primary mt-20">
-        <div class="panel-body">
-            <div class="row">
-                <div class="col-md-8">
-                    {{ form_row(form.log_retention_days) }}
-                </div>
+<div class="panel panel-primary">
+    <div class="panel-heading">
+        <h3 class="panel-title">{{ 'mautic.config.tab.cronscheduler.logs'|trans }}</h3>
+    </div>
+    <div class="panel-body">
+        <div class="row">
+            <div class="col-md-6">
+                {{ form_row(form.log_retention_days) }}
             </div>
         </div>
     </div>
 </div>
-{% endblock %}
 
+<div class="panel panel-primary">
+    <div class="panel-heading">
+        <h3 class="panel-title">{{ 'mautic.cron_scheduler.alert.config.header'|trans }}</h3>
+    </div>
+    <div class="panel-body">
+        <div class="row">
+            <div class="col-md-6">
+                {{ form_row(form.failure_alert_channel) }}
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-6" id="cron_scheduler_alert_email_template" data-show-on='{"config_cronschedulerconfig_failure_alert_channel":["email"]}'>
+                {{ form_row(form.failure_alert_email_template) }}
+            </div>
+            <div class="col-md-6" id="cron_scheduler_alert_sms_template" data-show-on='{"config_cronschedulerconfig_failure_alert_channel":["sms"]}'>
+                {{ form_row(form.failure_alert_sms_template) }}
+            </div>
+            {% if form.failure_alert_whatsapp_template is defined %}
+                <div class="col-md-6" id="cron_scheduler_alert_whatsapp_template" data-show-on='{"config_cronschedulerconfig_failure_alert_channel":["whatsapp"]}'>
+                    {{ form_row(form.failure_alert_whatsapp_template) }}
+                </div>
+            {% endif %}
+        </div>
+        <div class="row">
+            <div class="col-md-6" id="cron_scheduler_alert_emails" data-show-on='{"config_cronschedulerconfig_failure_alert_channel":["email"]}'>
+                {{ form_row(form.failure_alert_emails) }}
+            </div>
+            <div class="col-md-6" id="cron_scheduler_alert_phone_numbers" data-show-on='{"config_cronschedulerconfig_failure_alert_channel":["sms","whatsapp"]}'>
+                {{ form_row(form.failure_alert_phone_numbers) }}
+            </div>
+        </div>
+        <div class="alert alert-info mb-0">
+            <p class="mb-xs">{{ 'mautic.cron_scheduler.alert.tokens.help'|trans }}</p>
+            {job_id}, {job_name}, {job_command}, {job_arguments}, {job_executed_at}, {job_duration}, {job_exit_code}, {job_fail_reason}, {job_log_url}
+        </div>
+    </div>
+</div>
+{% endblock %}

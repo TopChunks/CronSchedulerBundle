@@ -105,9 +105,21 @@ class TriggerSchedulerJobs extends Command
                         if ($debug && isset($result['output']) && $result['output']) {
                             $io->writeln('  Output: ' . substr($result['output'], 0, 200));
                         }
-                    } else {
+                    } elseif (
+                        $result
+                        && isset($result['message'])
+                        && $result['message'] === SchedulerService::LOCKED_MESSAGE
+                    ) {
                         ++$skipped;
                         $io->writeln('  <comment> Skipped (locked)</comment>');
+                    } else {
+                        ++$failed;
+                        $reason = $result['output'] ?? $result['message'] ?? 'Command failed';
+                        $io->writeln('  <error> Failed: ' . substr((string) $reason, 0, 500) . '</error>');
+
+                        if ($debug && isset($result['output']) && $result['output']) {
+                            $io->writeln('  Output: ' . substr($result['output'], 0, 200));
+                        }
                     }
                 } else {
                     ++$skipped;

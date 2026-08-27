@@ -99,6 +99,17 @@ class CronSchedulerType extends AbstractType
             'label' => 'mautic.core.form.available',
         ]);
 
+        $builder->add(
+            'sendFailureAlert',
+            YesNoButtonGroupType::class,
+            [
+                'label' => 'mautic.cron_scheduler.form.send_failure_alert',
+                'attr'  => [
+                    'tooltip' => 'mautic.cron_scheduler.form.send_failure_alert.tooltip',
+                ],
+            ]
+        );
+
         $builder->add('publishUp', PublishUpDateType::class);
         $builder->add('publishDown', PublishDownDateType::class);
 
