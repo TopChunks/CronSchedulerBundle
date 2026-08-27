@@ -6,7 +6,7 @@ return [
     'name'        => 'Scheduled Jobs',
     'description' => 'Schedules mautic commands to run at specified intervals. No need to define mutiple commands in cron file. Plugin is fully compatible with system cron.',
     'author'      => 'Topchunks Solutions Pvt Ltd',
-    'version'     => '1.0.0',
+    'version'     => '1.1.0',
     'menu'        => [
         'admin' => [
             'items' => [
@@ -31,6 +31,12 @@ return [
         ],
     ],
     'parameters' => [
-        'log_retention_days' => 25,
+        'log_retention_days'              => 25,
+        'failure_alert_channel'           => 'email',
+        'failure_alert_email_template'    => null,
+        'failure_alert_sms_template'      => null,
+        'failure_alert_whatsapp_template' => null,
+        'failure_alert_emails'            => '',
+        'failure_alert_phone_numbers'     => '',
     ],
 ];

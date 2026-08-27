@@ -141,6 +141,9 @@
                         <dt>{{ 'mautic.cron_scheduler.form.priority'|trans }}:</dt>
                         <dd>{{ entity.getPriority() }}</dd>
 
+                        <dt>{{ 'mautic.cron_scheduler.form.send_failure_alert'|trans }}:</dt>
+                        <dd>{{ entity.getSendFailureAlert() ? 'mautic.core.form.yes'|trans : 'mautic.core.form.no'|trans }}</dd>
+
                         {% if entity.getTriggerMode() == 'cron' %}
                             <dt>{{ 'mautic.cron_scheduler.cron.notation'|trans }}:</dt>
                             <dd>{{ entity.getCronNotation() }}</dd>
