@@ -1,4 +1,4 @@
-[# CronSchedulerBundle
+# CronSchedulerBundle
 
 CronSchedulerBundle is a Mautic plugin that lets you define, schedule, and monitor Symfony console commands directly from the Mautic UI.
 It provides:
@@ -340,5 +340,3 @@ This makes the dropdown behave like core notification dropdowns: consistent pane
   - Also check Mautic’s logs under `var/logs` for stack traces if needed.
 
 If you run into a scenario not covered here, inspecting `JobExecutionLog` entries in the detail view (and the command output in the modal) is usually the fastest way to understand what’s going wrong.
-
-](https://github.com/TopChunks/CronSchedulerBundle/tree/v4)
