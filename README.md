@@ -16,7 +16,7 @@ It provides:
 
 ## Requirements
 
-- **Mautic 6.x** (tested with a standard Mautic 6 installation).
+- **Mautic 5.x** (tested with a standard Mautic 5 installation).
 - **PHP CLI** available in the environment that runs your cron jobs.
 - **Composer dependency**:
 
@@ -340,4 +340,3 @@ This makes the dropdown behave like core notification dropdowns: consistent pane
   - Also check Mautic’s logs under `var/logs` for stack traces if needed.
 
 If you run into a scenario not covered here, inspecting `JobExecutionLog` entries in the detail view (and the command output in the modal) is usually the fastest way to understand what’s going wrong.
-
