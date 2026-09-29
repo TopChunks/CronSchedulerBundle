@@ -578,6 +578,7 @@ class CronSchedulerController extends AbstractStandardFormController
 
     public function cloneAction(Request $request, $objectId)
     {
+        /** @var \MauticPlugin\CronSchedulerBundle\Model\CronSchedulerModel $model */
         $model  = $this->getModel('cronscheduler');
         $entity = $model->getEntity($objectId);
 
@@ -585,20 +586,25 @@ class CronSchedulerController extends AbstractStandardFormController
             return $this->accessDenied();
         }
 
-        if (null != $entity) {
-            if (
-                !$this->security->isGranted('cronscheduler:cronscheduler:create')
-                || !$this->security->hasEntityAccess(
-                    'cronscheduler:cronscheduler:viewown',
-                    'cronscheduler:cronscheduler:viewother',
-                    $entity->getCreatedBy()
-                )
-            ) {
-                return $this->accessDenied();
-            }
+        // Job not found: show an empty "new" form (same behavior as Mautic core).
+        if (null === $entity) {
+            return $this->newAction($request);
         }
 
-        return $this->newAction($entity);
+        if (
+            !$this->security->isGranted('cronscheduler:cronscheduler:create')
+            || !$this->security->hasEntityAccess(
+                'cronscheduler:cronscheduler:viewown',
+                'cronscheduler:cronscheduler:viewother',
+                $entity->getCreatedBy()
+            )
+        ) {
+            return $this->accessDenied();
+        }
+
+        // newAction() needs the Request as first argument.
+        // Give it a copy (see ScheduledJob::__clone), never the managed original.
+        return $this->newAction($request, clone $entity);
     }
 
 
