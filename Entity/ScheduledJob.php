@@ -2,6 +2,7 @@
 
 namespace MauticPlugin\CronSchedulerBundle\Entity;
 
+use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping\ClassMetadata as MappingClassMetadata;
 use Mautic\ApiBundle\Serializer\Driver\ApiMetadataDriver;
@@ -81,6 +82,28 @@ class ScheduledJob extends FormEntity
      * @var bool
      */
     private $sendFailureAlert = false;
+
+    /**
+     * Make a clean copy. FormEntity::__clone() already sets isPublished=false,
+     * so a cloned job does not run until the user publishes it.
+     */
+    public function __clone()
+    {
+        parent::__clone();
+
+        $this->id            = null;
+        $this->lastRunAt     = null;
+        $this->nextRunAt     = null;
+        $this->lockedAt      = null;
+        $this->executionLogs = new ArrayCollection();
+
+        // Do not share DateTime objects between the original and the copy.
+        foreach (['triggerDate', 'triggerHour', 'publishUp', 'publishDown'] as $property) {
+            if ($this->$property instanceof \DateTimeInterface) {
+                $this->$property = clone $this->$property;
+            }
+        }
+    }
 
     public static function loadMetadata(MappingClassMetadata $metadata): void
     {
