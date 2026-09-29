@@ -113,11 +113,14 @@ Optional, only if you want those alert channels:
    composer require dragonmantank/cron-expression
    ```
 
-3. Clear the Mautic cache:
+3. Clear the Mautic cache and rebuild the asset files:
 
    ```bash
    php bin/console cache:clear --env=prod
+   php bin/console mautic:assets:generate --env=prod
    ```
+
+   Run both commands as the web server user. The second command is required. It adds the plugin JavaScript (`Assets/js/cronscheduler.js`) to `media/js/app.js`. Without it, the **Execution Logs** button in the top bar and the Trigger Mode buttons on the job form fail with `Mautic.… is not a function`. `cache:clear` does not rebuild `app.js`.
 
 4. In Mautic, go to **Settings → Plugins**, find **Scheduled Jobs**, and click **Install**.
 
@@ -529,6 +532,13 @@ php bin/console mautic:jobs:trigger --env=prod --debug
 - For WhatsApp, map tokens on variables; do not edit the approved body.
 - Check `var/logs` for `CronScheduler failure alert` messages. Alert errors are swallowed so the scheduler keeps running.
 
+**Browser console shows `Mautic.showRecentJobLogs is not a function` (or another `Mautic.… is not a function` from this plugin)**
+
+- Mautic builds `media/js/app.js` only when the file is missing or when you run the command below. A new or updated plugin is not included until you rebuild it.
+- Run `php bin/console mautic:assets:generate --env=prod` as the web server user, then hard-refresh the browser. Purge the cache of any CDN or proxy in front of Mautic.
+- Check the server: `grep -c showRecentJobLogs docroot/media/js/app.js` must print 1 or more (use `media/js/app.js` if your install has no `docroot/` folder).
+- Check the browser console: `typeof Mautic.cronschedulerOnLoad` must print `"function"`.
+
 **Timezone looks wrong**
 
 - Times use Mautic’s configured local timezone, not UTC unless you set UTC in Mautic.
@@ -542,7 +552,8 @@ Stay on the git branch that matches your Mautic version (`v4`, `v5`, `v6`, or `v
 1. Replace the `plugins/CronSchedulerBundle` directory with the new version (or `git pull` on the correct branch).
 2. Confirm the Composer package is still present: `composer require dragonmantank/cron-expression`
 3. Clear cache: `php bin/console cache:clear --env=prod`
-4. Open **Settings → Plugins** and click **Install/Upgrade** if the plugin reports a schema or version update.
+4. Rebuild assets: `php bin/console mautic:assets:generate --env=prod`, then hard-refresh the browser (Ctrl+F5).
+5. Open **Settings → Plugins** and click **Install/Upgrade** if the plugin reports a schema or version update.
 
 Schema changes (for example new columns) are applied by the plugin’s install/update subscriber. If a page errors about a missing column after an upgrade, run the plugin update step and reload.
 
